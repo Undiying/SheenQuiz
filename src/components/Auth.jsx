@@ -21,48 +21,26 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
     setLoading(true);
     
     try {
-      if (authMode === 'login') {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
-        if (error) {
-          alert('Login Error: ' + error.message);
-        } else {
-          onTeacherLogin(data.user.id);
-        }
+      // Check for Super Admin
+      if (formData.name === 'Admin' && formData.password === 'SheenAdmin123') {
+        onTeacherLogin({ id: 'super-admin-001', full_name: 'Super Admin', role: 'superadmin' });
+        setLoading(false);
+        return;
+      }
+
+      // Check for regular teacher in profiles table
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('full_name', formData.name)
+        .eq('password', formData.password)
+        .eq('role', 'teacher')
+        .single();
+
+      if (error || !data) {
+        alert('Invalid teacher name or password. Please ask the Admin to create your account.');
       } else {
-        // Sign Up
-        const { data, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.name
-            }
-          }
-        });
-        
-        if (error) {
-          alert('Signup Error: ' + error.message);
-        } else if (data.user) {
-          // Manually create profile if trigger is missing
-          const { error: pError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              full_name: formData.name,
-              role: 'teacher'
-            });
-          
-          if (pError) {
-            console.error('Profile creation error:', pError);
-            alert('Account created, but failed to set teacher role. Contact admin. Error: ' + pError.message);
-          } else {
-            alert('Account created successfully! You can now log in.');
-            setAuthMode('login');
-          }
-        }
+        onTeacherLogin(data);
       }
     } catch (err) {
       console.error('Unexpected Auth Error:', err);
@@ -151,26 +129,13 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
             </form>
           ) : (
             <form onSubmit={handleTeacherAuth}>
-              {authMode === 'signup' && (
-                <div className="form-group animate-in">
-                  <label>Full Name</label>
-                  <input 
-                    type="text" 
-                    name="name" 
-                    placeholder="Enter your name" 
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required 
-                  />
-                </div>
-              )}
               <div className="form-group">
-                <label>Email Address</label>
+                <label>Teacher Name</label>
                 <input 
-                  type="email" 
-                  name="email" 
-                  placeholder="admin@sheen.com" 
-                  value={formData.email}
+                  type="text" 
+                  name="name" 
+                  placeholder="e.g. Mr. Smith" 
+                  value={formData.name}
                   onChange={handleInputChange}
                   required 
                 />
@@ -187,23 +152,8 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
                 />
               </div>
               <button type="submit" className="btn btn-secondary" disabled={loading}>
-                {loading ? 'Processing...' : (authMode === 'login' ? 'Admin Login' : 'Create Teacher Account')}
+                {loading ? 'Processing...' : 'Teacher Login'}
               </button>
-              
-              {/* FORCING REBUILD: Sign-up logic is confirmed. */}
-              <div style={{marginTop: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem', textAlign: 'center'}}>
-                <p style={{marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
-                  {authMode === 'login' ? "New teacher?" : "Already have an account?"}
-                </p>
-                <button 
-                  type="button"
-                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                  className="btn btn-outline"
-                  style={{fontSize: '0.8rem', padding: '0.5rem 1rem'}}
-                >
-                  {authMode === 'login' ? 'CREATE TEACHER ACCOUNT' : 'BACK TO LOGIN'}
-                </button>
-              </div>
             </form>
           )}
         </div>

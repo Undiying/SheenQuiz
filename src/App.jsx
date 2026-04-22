@@ -4,6 +4,7 @@ import Auth from './components/Auth';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import GameRoom from './components/GameRoom';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import { Sparkles } from 'lucide-react';
 
 function App() {
@@ -13,49 +14,30 @@ function App() {
   const [activeSession, setActiveSession] = useState(null);
 
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-        setCurrentScreen('auth');
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // Check local storage for persistent login
+    const savedProfile = localStorage.getItem('sheenquiz_profile');
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile);
+      handleLoginRoute(parsed);
+    }
   }, []);
 
-  const fetchProfile = async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (data) {
-      setProfile(data);
-      setCurrentScreen(data.role === 'teacher' ? 'teacher-dashboard' : 'student-dashboard');
+  const handleLoginRoute = (profileData) => {
+    setProfile(profileData);
+    localStorage.setItem('sheenquiz_profile', JSON.stringify(profileData));
+    
+    if (profileData.role === 'superadmin') {
+      setCurrentScreen('superadmin-dashboard');
+    } else if (profileData.role === 'teacher') {
+      setCurrentScreen('teacher-dashboard');
+    } else {
+      setCurrentScreen('student-dashboard');
     }
   };
 
-  // Custom login for students (non-email)
-  const handleStudentLogin = (studentProfile) => {
-    setProfile(studentProfile);
-    setCurrentScreen('student-dashboard');
-  };
-
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('sheenquiz_profile');
     setProfile(null);
-    setSession(null);
     setCurrentScreen('auth');
   };
 
@@ -72,7 +54,14 @@ function App() {
   return (
     <div className="app">
       {currentScreen === 'auth' && (
-        <Auth onTeacherLogin={fetchProfile} onStudentLogin={handleStudentLogin} />
+        <Auth onTeacherLogin={handleLoginRoute} onStudentLogin={handleLoginRoute} />
+      )}
+
+      {currentScreen === 'superadmin-dashboard' && profile && (
+        <SuperAdminDashboard 
+          profile={profile} 
+          onLogout={handleLogout} 
+        />
       )}
 
       {currentScreen === 'teacher-dashboard' && profile && (
