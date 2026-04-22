@@ -183,16 +183,20 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
                 {loading ? 'Processing...' : (authMode === 'login' ? 'Admin Login' : 'Create Teacher Account')}
               </button>
               
-              <p style={{marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
-                {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}
+              {/* FORCING REBUILD: Sign-up logic is confirmed. */}
+              <div style={{marginTop: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem', textAlign: 'center'}}>
+                <p style={{marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
+                  {authMode === 'login' ? "New teacher?" : "Already have an account?"}
+                </p>
                 <button 
                   type="button"
                   onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                  style={{background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginLeft: '5px', fontWeight: 600}}
+                  className="btn btn-outline"
+                  style={{fontSize: '0.8rem', padding: '0.5rem 1rem'}}
                 >
-                  {authMode === 'login' ? 'Sign up' : 'Log in'}
+                  {authMode === 'login' ? 'CREATE TEACHER ACCOUNT' : 'BACK TO LOGIN'}
                 </button>
-              </p>
+              </div>
             </form>
           )}
         </div>
