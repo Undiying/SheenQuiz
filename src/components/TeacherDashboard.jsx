@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Play, Users, LayoutDashboard, LogOut } from 'lucide-react';
+import QuizCreator from './QuizCreator';
 
 const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [selectedClass, setSelectedClass] = useState('Explorer');
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     fetchQuizzes();
@@ -44,6 +46,20 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
     }
   };
 
+  if (isCreating) {
+    return (
+      <QuizCreator 
+        profile={profile} 
+        selectedClass={selectedClass} 
+        onSave={() => {
+          setIsCreating(false);
+          fetchQuizzes();
+        }}
+        onCancel={() => setIsCreating(false)}
+      />
+    );
+  }
+
   return (
     <div className="screen animate-in" style={{justifyContent: 'flex-start', padding: '2rem'}}>
       <div className="dashboard-header">
@@ -75,7 +91,11 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
       <div className="quiz-section">
         <div className="section-header">
           <h3>My {selectedClass} Quizzes</h3>
-          <button className="btn btn-primary btn-sm" style={{width: 'auto'}}>
+          <button 
+            className="btn btn-primary btn-sm" 
+            style={{width: 'auto'}}
+            onClick={() => setIsCreating(true)}
+          >
             <Plus size={18} /> New Quiz
           </button>
         </div>
