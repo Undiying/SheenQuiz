@@ -4,6 +4,7 @@ import { Sparkles, GraduationCap, ShieldCheck } from 'lucide-react';
 
 const Auth = ({ onTeacherLogin, onStudentLogin }) => {
   const [activeTab, setActiveTab] = useState('student');
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -15,18 +16,51 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleTeacherLogin = async (e) => {
+  const handleTeacherAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password
-    });
-
-    if (error) {
-      alert(error.message);
+    
+    if (authMode === 'login') {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
+      if (error) {
+        alert(error.message);
+      } else {
+        onTeacherLogin(data.user.id);
+      }
     } else {
-      onTeacherLogin(data.user.id);
+      // Sign Up
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name
+          }
+        }
+      });
+      
+      if (error) {
+        alert(error.message);
+      } else if (data.user) {
+        // Manually create profile if trigger is missing
+        const { error: pError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            full_name: formData.name,
+            role: 'teacher'
+          });
+        
+        if (pError) {
+          console.error('Profile creation error:', pError);
+        }
+        
+        alert('Account created! You can now log in.');
+        setAuthMode('login');
+      }
     }
     setLoading(false);
   };
@@ -109,7 +143,20 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleTeacherLogin}>
+            <form onSubmit={handleTeacherAuth}>
+              {authMode === 'signup' && (
+                <div className="form-group animate-in">
+                  <label>Full Name</label>
+                  <input 
+                    type="text" 
+                    name="name" 
+                    placeholder="Enter your name" 
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required 
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Email Address</label>
                 <input 
@@ -133,8 +180,19 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
                 />
               </div>
               <button type="submit" className="btn btn-secondary" disabled={loading}>
-                {loading ? 'Logging in...' : 'Admin Login'}
+                {loading ? 'Processing...' : (authMode === 'login' ? 'Admin Login' : 'Create Teacher Account')}
               </button>
+              
+              <p style={{marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
+                {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}
+                <button 
+                  type="button"
+                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                  style={{background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', marginLeft: '5px', fontWeight: 600}}
+                >
+                  {authMode === 'login' ? 'Sign up' : 'Log in'}
+                </button>
+              </p>
             </form>
           )}
         </div>
