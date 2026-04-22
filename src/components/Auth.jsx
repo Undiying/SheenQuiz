@@ -20,49 +20,56 @@ const Auth = ({ onTeacherLogin, onStudentLogin }) => {
     e.preventDefault();
     setLoading(true);
     
-    if (authMode === 'login') {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
-      if (error) {
-        alert(error.message);
+    try {
+      if (authMode === 'login') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
+        if (error) {
+          alert('Login Error: ' + error.message);
+        } else {
+          onTeacherLogin(data.user.id);
+        }
       } else {
-        onTeacherLogin(data.user.id);
-      }
-    } else {
-      // Sign Up
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name
+        // Sign Up
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.name
+            }
+          }
+        });
+        
+        if (error) {
+          alert('Signup Error: ' + error.message);
+        } else if (data.user) {
+          // Manually create profile if trigger is missing
+          const { error: pError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              full_name: formData.name,
+              role: 'teacher'
+            });
+          
+          if (pError) {
+            console.error('Profile creation error:', pError);
+            alert('Account created, but failed to set teacher role. Contact admin. Error: ' + pError.message);
+          } else {
+            alert('Account created successfully! You can now log in.');
+            setAuthMode('login');
           }
         }
-      });
-      
-      if (error) {
-        alert(error.message);
-      } else if (data.user) {
-        // Manually create profile if trigger is missing
-        const { error: pError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            full_name: formData.name,
-            role: 'teacher'
-          });
-        
-        if (pError) {
-          console.error('Profile creation error:', pError);
-        }
-        
-        alert('Account created! You can now log in.');
-        setAuthMode('login');
       }
+    } catch (err) {
+      console.error('Unexpected Auth Error:', err);
+      alert('An unexpected error occurred: ' + err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleStudentLogin = async (e) => {
