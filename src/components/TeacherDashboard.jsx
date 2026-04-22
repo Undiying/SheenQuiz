@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Play, Users, LayoutDashboard, LogOut } from 'lucide-react';
 import QuizCreator from './QuizCreator';
+import StudentManager from './StudentManager';
 
 const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [selectedClass, setSelectedClass] = useState('Explorer');
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [isManagingStudents, setIsManagingStudents] = useState(false);
 
   useEffect(() => {
     fetchQuizzes();
@@ -56,6 +58,16 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
           fetchQuizzes();
         }}
         onCancel={() => setIsCreating(false)}
+      />
+    );
+  }
+
+  if (isManagingStudents) {
+    return (
+      <StudentManager
+        profile={profile}
+        selectedClass={selectedClass}
+        onCancel={() => setIsManagingStudents(false)}
       />
     );
   }
@@ -124,7 +136,11 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
       </div>
 
       <div className="action-grid" style={{marginTop: '3rem'}}>
-        <div className="action-card">
+        <div 
+          className="action-card" 
+          onClick={() => setIsManagingStudents(true)}
+          style={{cursor: 'pointer'}}
+        >
           <Users size={32} />
           <h4>Manage Students</h4>
           <p>Add students to {selectedClass} and set passwords</p>

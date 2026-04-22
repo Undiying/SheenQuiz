@@ -255,7 +255,10 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         </div>
 
         <div className="question-area" style={{textAlign: 'center', maxWidth: '900px', margin: '2rem auto'}}>
-          <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>
+          {/* Only show the question text if Host or if results are being shown */}
+          {(isHost || results) && (
+            <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>
+          )}
           
           {isHost || results ? (
             <div className="options-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>

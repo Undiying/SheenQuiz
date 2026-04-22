@@ -5,8 +5,11 @@ import { Trophy, History, Play, LogOut } from 'lucide-react';
 const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState('pin'); // 'pin' or 'name'
+  const [sessionData, setSessionData] = useState(null);
+  const [displayName, setDisplayName] = useState(profile.display_name || '');
 
-  const handleJoinGame = async (e) => {
+  const handleVerifyPin = async (e) => {
     e.preventDefault();
     if (!pin || pin.length < 6) return;
 
@@ -20,20 +23,40 @@ const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
 
     if (error || !session) {
       alert('Game not found or already started.');
+      setLoading(false);
     } else {
-      // Join as participant
-      const { error: pError } = await supabase
-        .from('game_participants')
-        .insert({
-          session_id: session.id,
-          profile_id: profile.id
-        });
+      setSessionData(session);
+      setStep('name');
+      setLoading(false);
+    }
+  };
 
-      if (pError) {
-        alert('Error joining game: ' + pError.message);
-      } else {
-        onJoinGame(session);
-      }
+  const handleJoinGame = async (e) => {
+    e.preventDefault();
+    if (!displayName) return;
+    
+    setLoading(true);
+    
+    // Update profile display name
+    await supabase
+      .from('profiles')
+      .update({ display_name: displayName })
+      .eq('id', profile.id);
+
+    // Join as participant
+    const { error: pError } = await supabase
+      .from('game_participants')
+      .insert({
+        session_id: sessionData.id,
+        profile_id: profile.id
+      });
+
+    if (pError) {
+      alert('Error joining game: ' + pError.message);
+    } else {
+      // Create an updated profile object to pass to GameRoom
+      const updatedProfile = { ...profile, display_name: displayName };
+      onJoinGame(sessionData, updatedProfile);
     }
     setLoading(false);
   };
@@ -52,20 +75,46 @@ const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
       </div>
 
       <div className="pin-section animate-in">
-        <h3>Ready to Play?</h3>
-        <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem'}}>Enter the PIN from your teacher to join the live game.</p>
-        <form onSubmit={handleJoinGame} className="pin-input-group">
-          <input 
-            type="text" 
-            placeholder="000 000" 
-            maxLength="6"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-          />
-          <button type="submit" className="btn btn-primary" style={{width: 'auto', padding: '0 2rem'}} disabled={loading}>
-            {loading ? 'Joining...' : 'Join Game'}
-          </button>
-        </form>
+        {step === 'pin' ? (
+          <>
+            <h3>Ready to Play?</h3>
+            <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem'}}>Enter the PIN from your teacher to join the live game.</p>
+            <form onSubmit={handleVerifyPin} className="pin-input-group">
+              <input 
+                type="text" 
+                placeholder="000 000" 
+                maxLength="6"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+              />
+              <button type="submit" className="btn btn-primary" style={{width: 'auto', padding: '0 2rem'}} disabled={loading || pin.length < 6}>
+                {loading ? 'Finding...' : 'Next'}
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="animate-in">
+            <h3>Choose your Display Name</h3>
+            <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem'}}>Keep your identity a secret from the class!</p>
+            <form onSubmit={handleJoinGame} className="pin-input-group">
+              <input 
+                type="text" 
+                placeholder="Fun Nickname" 
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary" style={{width: 'auto', padding: '0 2rem'}} disabled={loading || !displayName}>
+                {loading ? 'Joining...' : 'Join Game'}
+              </button>
+            </form>
+            <button 
+              onClick={() => setStep('pin')} 
+              style={{background: 'none', border: 'none', color: 'var(--text-secondary)', marginTop: '1rem', cursor: 'pointer', textDecoration: 'underline'}}
+            >
+              Back
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="stats-grid animate-in" style={{animationDelay: '0.1s'}}>
