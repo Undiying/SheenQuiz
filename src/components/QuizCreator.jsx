@@ -131,7 +131,7 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
           {questions.map((q, qIndex) => (
             <div key={qIndex} className="question-item" style={{background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)'}}>
               <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-                <span style={{fontWeight: 700, color: var(--primary)}}># {qIndex + 1}</span>
+                <span style={{fontWeight: 700, color: 'var(--primary)'}}># {qIndex + 1}</span>
                 {questions.length > 1 && (
                   <button onClick={() => removeQuestion(qIndex)} style={{background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer'}}>
                     <Trash2 size={18} />
