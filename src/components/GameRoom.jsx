@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy } from 'lucide-react';
+import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3 } from 'lucide-react';
 
 const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [participants, setParticipants] = useState([]);
@@ -10,6 +10,8 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [results, setResults] = useState(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
     fetchParticipants();
@@ -37,7 +39,10 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       }, (payload) => {
         setStatus(payload.new.status);
         setCurrentQuestionIndex(payload.new.current_question_index);
+        
+        // If status changes to active or index changes, reset question state
         if (payload.new.status === 'active') {
+          setShowLeaderboard(false);
           startTimer();
         }
       })
@@ -67,22 +72,21 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   };
 
   const startTimer = () => {
-    setTimeLeft(20); // Default 20s
+    setTimeLeft(20); 
     setHasAnswered(false);
     setResults(null);
   };
 
   useEffect(() => {
-    if (status === 'active' && timeLeft > 0) {
+    if (status === 'active' && !showLeaderboard && timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && status === 'active') {
+    } else if (timeLeft === 0 && status === 'active' && !showLeaderboard) {
       showQuestionResults();
     }
-  }, [timeLeft, status]);
+  }, [timeLeft, status, showLeaderboard]);
 
   const showQuestionResults = async () => {
-    // Fetch all answers for this question
     const { data } = await supabase
       .from('student_responses')
       .select('*')
@@ -90,6 +94,32 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       .eq('question_id', questions[currentQuestionIndex].id);
     
     setResults(data);
+  };
+
+  const calculateLeaderboard = async () => {
+    const { data } = await supabase
+      .from('student_responses')
+      .select('profile_id, is_correct, time_taken, profiles(display_name, full_name)')
+      .eq('session_id', gameSession.id);
+
+    const scores = {};
+    data.forEach(resp => {
+      if (!scores[resp.profile_id]) {
+        scores[resp.profile_id] = { 
+          name: resp.profiles.display_name || resp.profiles.full_name,
+          score: 0 
+        };
+      }
+      if (resp.is_correct) {
+        // Simple scoring: 1000 base - (time_taken * 10)
+        const points = Math.max(500, 1000 - Math.floor(resp.time_taken * 25));
+        scores[resp.profile_id].score += points;
+      }
+    });
+
+    const sorted = Object.values(scores).sort((a, b) => b.score - a.score);
+    setLeaderboard(sorted);
+    setShowLeaderboard(true);
   };
 
   const handleStartGame = async () => {
@@ -116,7 +146,6 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
 
   const submitAnswer = async (optionIndex) => {
     if (hasAnswered || timeLeft === 0) return;
-    
     setHasAnswered(true);
     const question = questions[currentQuestionIndex];
     const isCorrect = optionIndex === question.correct_answer;
@@ -168,6 +197,50 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     );
   }
 
+  if (showLeaderboard || status === 'finished') {
+    return (
+      <div className="screen animate-in">
+        <Trophy size={64} color="var(--warning)" style={{marginBottom: '1rem'}}/>
+        <h1 style={{fontSize: '3rem', marginBottom: '2rem'}}>{status === 'finished' ? 'Final Leaderboard' : 'Standings'}</h1>
+        
+        <div className="leaderboard-card auth-card" style={{width: '100%', maxWidth: '600px'}}>
+          {leaderboard.length > 0 ? (
+            leaderboard.map((entry, idx) => (
+              <div key={idx} style={{
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                padding: '1rem', 
+                background: idx === 0 ? 'rgba(255,215,0,0.1)' : 'transparent',
+                borderRadius: '12px',
+                borderBottom: '1px solid var(--glass-border)',
+                marginBottom: '0.5rem'
+              }}>
+                <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                  <span style={{fontWeight: 800, color: idx === 0 ? 'var(--warning)' : 'var(--text-secondary)'}}>#{idx + 1}</span>
+                  <span style={{fontWeight: 600}}>{entry.name}</span>
+                </div>
+                <span style={{fontWeight: 800, color: 'var(--primary)'}}>{entry.score} pts</span>
+              </div>
+            ))
+          ) : (
+            <p style={{textAlign: 'center', color: 'var(--text-secondary)'}}>No scores yet!</p>
+          )}
+        </div>
+
+        <div style={{marginTop: '2rem', display: 'flex', gap: '1rem'}}>
+          {isHost && status !== 'finished' && (
+            <button className="btn btn-primary" onClick={handleNextQuestion} style={{width: 'auto', padding: '1rem 3rem'}}>
+              {currentQuestionIndex + 1 === questions.length ? 'FINISH GAME' : 'NEXT QUESTION'}
+            </button>
+          )}
+          {status === 'finished' && (
+            <button className="btn btn-outline" onClick={onLeave} style={{width: 'auto'}}>Back to Dashboard</button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (status === 'active' && currentQuestion) {
     return (
       <div className="screen animate-in" style={{background: 'var(--bg-dark)'}}>
@@ -184,7 +257,6 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         <div className="question-area" style={{textAlign: 'center', maxWidth: '900px', margin: '2rem auto'}}>
           <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>
           
-          {/* Teacher View: Options Display */}
           {isHost || results ? (
             <div className="options-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>
               {currentQuestion.options.map((opt, idx) => (
@@ -193,15 +265,14 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   padding: '2rem', 
                   borderRadius: '24px', 
                   border: results && idx === currentQuestion.correct_answer ? '4px solid var(--success)' : '1px solid var(--glass-border)',
-                  position: 'relative'
+                  position: 'relative',
+                  opacity: results && idx !== currentQuestion.correct_answer ? 0.4 : 1
                 }}>
                   <span style={{fontSize: '1.5rem'}}>{opt}</span>
-                  {results && idx === currentQuestion.correct_answer && <CheckCircle2 style={{position: 'absolute', right: '20px', top: '20px'}} color="var(--success)"/>}
                 </div>
               ))}
             </div>
           ) : (
-            /* Student View: Response Buttons */
             <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>
               {['triangle', 'diamond', 'circle', 'square'].map((shape, idx) => (
                 <button 
@@ -226,31 +297,25 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
           )}
         </div>
 
-        {isHost && timeLeft === 0 && (
-          <button className="btn btn-primary" onClick={handleNextQuestion} style={{width: 'auto', marginTop: '2rem', padding: '1rem 4rem'}}>
-            {currentQuestionIndex + 1 === questions.length ? 'FINISH' : 'NEXT QUESTION'}
+        {isHost && timeLeft === 0 && !showLeaderboard && (
+          <button className="btn btn-secondary" onClick={calculateLeaderboard} style={{width: 'auto', marginTop: '2rem', padding: '1rem 4rem'}}>
+            <BarChart3 size={18} /> SHOW LEADERBOARD
           </button>
         )}
 
         {hasAnswered && !isHost && timeLeft > 0 && (
           <div className="waiting-indicator">
-            <h2>Answer Submitted!</h2>
-            <p>Waiting for other players...</p>
+            <h2 style={{color: 'var(--success)'}}>Answer Submitted!</h2>
+            <p>Wait for the results...</p>
           </div>
         )}
-      </div>
-    );
-  }
 
-  if (status === 'finished') {
-    return (
-      <div className="screen animate-in">
-        <Trophy size={80} color="var(--warning)" />
-        <h1 style={{fontSize: '4rem', margin: '2rem 0'}}>Game Finished!</h1>
-        <div className="leaderboard-preview">
-          {/* We'll implement the full leaderboard next */}
-          <button className="btn btn-primary" onClick={onLeave}>Back to Dashboard</button>
-        </div>
+        {timeLeft === 0 && !isHost && !showLeaderboard && (
+          <div className="waiting-indicator">
+            <h2>Time's up!</h2>
+            <p>Teacher is reviewing results...</p>
+          </div>
+        )}
       </div>
     );
   }
