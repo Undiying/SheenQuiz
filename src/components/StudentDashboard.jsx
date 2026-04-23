@@ -9,6 +9,37 @@ const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
   const [sessionData, setSessionData] = useState(null);
   const [displayName, setDisplayName] = useState(profile.display_name || '');
 
+  useEffect(() => {
+    checkActiveSession();
+  }, []);
+
+  const checkActiveSession = async () => {
+    setLoading(true);
+    // Look for the most recent game joined by this student
+    const { data: participantData } = await supabase
+      .from('game_participants')
+      .select('session_id')
+      .eq('profile_id', profile.id)
+      .order('last_seen', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (participantData) {
+      // Check if that session is still active or in lobby
+      const { data: activeSession } = await supabase
+        .from('game_sessions')
+        .select('*, quizzes(title)')
+        .eq('id', participantData.session_id)
+        .neq('status', 'finished')
+        .single();
+
+      if (activeSession) {
+        onJoinGame(activeSession, profile);
+      }
+    }
+    setLoading(false);
+  };
+
   const handleVerifyPin = async (e) => {
     e.preventDefault();
     if (!pin || pin.length < 6) return;
@@ -43,13 +74,32 @@ const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
       .update({ display_name: displayName })
       .eq('id', profile.id);
 
-    // Join as participant
-    const { error: pError } = await supabase
+    // Check if they are already in the session to avoid unique constraint errors if we had them
+    const { data: existingParticipant } = await supabase
       .from('game_participants')
-      .insert({
-        session_id: sessionData.id,
-        profile_id: profile.id
-      });
+      .select('id')
+      .eq('session_id', sessionData.id)
+      .eq('profile_id', profile.id)
+      .single();
+
+    let pError = null;
+    if (!existingParticipant) {
+      // Join as participant
+      const { error } = await supabase
+        .from('game_participants')
+        .insert({
+          session_id: sessionData.id,
+          profile_id: profile.id,
+          last_seen: new Date().toISOString()
+        });
+      pError = error;
+    } else {
+      // Just update last_seen
+      await supabase
+        .from('game_participants')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', existingParticipant.id);
+    }
 
     if (pError) {
       alert('Error joining game: ' + pError.message);

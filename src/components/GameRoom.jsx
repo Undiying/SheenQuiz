@@ -285,24 +285,35 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
               ))}
             </div>
           ) : (
-            <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>
-              {['triangle', 'diamond', 'circle', 'square'].map((shape, idx) => (
+            <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%', height: '60vh'}}>
+              {[
+                { shape: 'triangle', color: '#e21b3c', label: '▲' },
+                { shape: 'diamond', color: '#1368ce', label: '◆' },
+                { shape: 'circle', color: '#d89e00', label: '●' },
+                { shape: 'square', color: '#26890c', label: '■' }
+              ].map((item, idx) => (
                 <button 
                   key={idx}
-                  className={`response-btn ${shape}`}
+                  className="response-btn"
                   disabled={hasAnswered}
                   onClick={() => submitAnswer(idx)}
                   style={{
-                    height: '200px', 
-                    borderRadius: '24px', 
+                    height: '100%', 
+                    borderRadius: '16px', 
                     border: 'none', 
                     cursor: hasAnswered ? 'default' : 'pointer',
                     opacity: hasAnswered ? 0.6 : 1,
-                    background: `var(--${shape}-color)`,
-                    boxShadow: '0 8px 0 rgba(0,0,0,0.2)'
+                    background: item.color,
+                    boxShadow: '0 8px 0 rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '6rem',
+                    color: 'white',
+                    transition: 'transform 0.1s'
                   }}
                 >
-                  <div className={`shape-${shape}`} />
+                  {item.label}
                 </button>
               ))}
             </div>
