@@ -9,6 +9,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [questions, setQuestions] = useState([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [localResult, setLocalResult] = useState(null);
   const [results, setResults] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -75,6 +76,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     setTimeLeft(20); 
     setHasAnswered(false);
     setResults(null);
+    setLocalResult(null);
   };
 
   useEffect(() => {
@@ -149,6 +151,13 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     setHasAnswered(true);
     const question = questions[currentQuestionIndex];
     const isCorrect = optionIndex === question.correct_answer;
+    
+    // Calculate points (max 1000, min 500 based on speed)
+    const timeTaken = 20 - timeLeft;
+    const points = isCorrect ? Math.max(500, 1000 - Math.floor(timeTaken * 25)) : 0;
+    
+    // Save locally for immediate feedback when timer ends
+    setLocalResult({ isCorrect, points });
 
     await supabase
       .from('student_responses')
@@ -158,7 +167,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         question_id: question.id,
         chosen_option: optionIndex,
         is_correct: isCorrect,
-        time_taken: 20 - timeLeft
+        time_taken: timeTaken
       });
   };
 
@@ -314,9 +323,24 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         )}
 
         {timeLeft === 0 && !isHost && !showLeaderboard && (
-          <div className="waiting-indicator">
-            <h2>Time's up!</h2>
-            <p>Teacher is reviewing results...</p>
+          <div className="feedback-screen animate-in" style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+            background: localResult?.isCorrect ? 'var(--success)' : (localResult ? 'var(--danger)' : 'var(--bg-dark)'),
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            zIndex: 100
+          }}>
+            <h1 style={{fontSize: '4rem', color: 'white', marginBottom: '1rem'}}>
+              {localResult?.isCorrect ? 'Correct!' : (localResult ? 'Incorrect' : "Time's Up!")}
+            </h1>
+            {localResult?.isCorrect && (
+              <div style={{background: 'rgba(0,0,0,0.2)', padding: '1rem 3rem', borderRadius: '50px', marginTop: '2rem'}}>
+                <span style={{fontSize: '2rem', fontWeight: 800, color: 'white'}}>+{localResult.points} pts</span>
+              </div>
+            )}
+            {!localResult && (
+              <p style={{fontSize: '1.5rem', color: 'rgba(255,255,255,0.8)'}}>No answer submitted.</p>
+            )}
+            <p style={{marginTop: '3rem', color: 'rgba(255,255,255,0.7)'}}>Teacher is reviewing results...</p>
           </div>
         )}
       </div>
