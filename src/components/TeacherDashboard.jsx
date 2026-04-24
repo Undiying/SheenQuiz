@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, Play, Users, LayoutDashboard, LogOut } from 'lucide-react';
+import { Plus, Play, Users, LayoutDashboard, LogOut, Trash2, Rocket } from 'lucide-react';
 import QuizCreator from './QuizCreator';
 import StudentManager from './StudentManager';
 import ClassProgress from './ClassProgress';
@@ -19,50 +19,69 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
 
   const fetchQuizzes = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('quizzes')
-      .select('*, classes(name)')
-      .eq('teacher_id', profile.id)
-      .eq('classes.name', selectedClass);
+    try {
+      // First get the class ID for the selected class name
+      const { data: classData } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('name', selectedClass)
+        .single();
 
-    if (data) setQuizzes(data);
+      if (classData) {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .select('*')
+          .eq('teacher_id', profile.id)
+          .eq('class_id', classData.id)
+          .order('created_at', { ascending: false });
+
+        if (data) setQuizzes(data);
+      }
+    } catch (err) {
+      console.error('Error fetching quizzes:', err);
+    }
     setLoading(false);
   };
 
-  const handleHostGame = async (quizId) => {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .insert({
-        quiz_id: quizId,
-        pin: pin,
-        status: 'lobby',
-        host_id: profile.id
-      })
-      .select()
-      .single();
+  const handleStartHost = async (quiz) => {
+    try {
+      const pin = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .insert({
+          quiz_id: quiz.id,
+          pin: pin,
+          status: 'lobby',
+          host_id: profile.id
+        })
+        .select(`
+          *,
+          quizzes (title)
+        `)
+        .single();
 
-    if (error) {
-      alert('Failed to host game: ' + error.message);
-    } else {
-      onHostGame(data);
+      if (error) throw error;
+      if (data) onHostGame(data);
+    } catch (err) {
+      alert('Failed to host game: ' + err.message);
     }
   };
 
   const handleDeleteQuiz = async (e, quizId) => {
-    e.stopPropagation(); // Prevent Host Live from triggering
+    e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this quiz and all its questions?')) return;
     
-    const { error } = await supabase
-      .from('quizzes')
-      .delete()
-      .eq('id', quizId);
-      
-    if (error) {
-      alert('Error deleting quiz: ' + error.message);
-    } else {
+    try {
+      const { error } = await supabase
+        .from('quizzes')
+        .delete()
+        .eq('id', quizId);
+        
+      if (error) throw error;
       setQuizzes(quizzes.filter(q => q.id !== quizId));
+    } catch (err) {
+      alert('Error deleting quiz: ' + err.message);
     }
   };
 
@@ -163,9 +182,24 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
                 <div key={q.id} className="quiz-card animate-in">
                   <h4>{q.title}</h4>
                   <p>{q.description || 'No description provided.'}</p>
-                  <button className="btn btn-secondary" onClick={() => handleHostGame(q.id)}>
-                    <Play size={18} /> Host Live
-                  </button>
+                  
+                  <div className="card-actions" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', gap: '0.8rem'}}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{flex: 1, padding: '0.8rem'}}
+                      onClick={() => handleStartHost(q)}
+                    >
+                      <Rocket size={18} /> Host Live
+                    </button>
+                    <button 
+                      className="btn btn-outline" 
+                      style={{width: 'auto', padding: '0.8rem', borderColor: 'rgba(239, 68, 68, 0.2)', color: 'var(--danger)'}}
+                      onClick={(e) => handleDeleteQuiz(e, q.id)}
+                      title="Delete Quiz"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (

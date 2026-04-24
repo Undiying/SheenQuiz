@@ -174,7 +174,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     data.forEach(resp => {
       if (!scores[resp.profile_id]) {
         scores[resp.profile_id] = { 
-          name: resp.profiles.display_name || resp.profiles.full_name,
+          name: resp.profiles?.display_name || resp.profiles?.full_name || 'Anonymous Student',
           score: 0 
         };
       }
