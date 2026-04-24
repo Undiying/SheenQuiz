@@ -14,6 +14,16 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [responsesCount, setResponsesCount] = useState(0);
+  const questionIndexRef = React.useRef(currentQuestionIndex);
+  const questionsRef = React.useRef(questions);
+
+  useEffect(() => {
+    questionIndexRef.current = currentQuestionIndex;
+  }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
 
   const roboticsIcons = [
     { icon: <Settings />, color: '#3b82f6', label: 'Gear' },
@@ -66,9 +76,10 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         table: 'student_responses',
         filter: `session_id=eq.${gameSession.id}`
       }, (payload) => {
-        // Double check it's for the current question
-        if (questions[currentQuestionIndex] && payload.new.question_id === questions[currentQuestionIndex].id) {
-          fetchResponsesCount(currentQuestionIndex);
+        // Use ref to get the absolute latest question data
+        const currentQ = questionsRef.current[questionIndexRef.current];
+        if (currentQ && payload.new.question_id === currentQ.id) {
+          fetchResponsesCount(questionIndexRef.current);
         }
       })
       .subscribe();
@@ -372,6 +383,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   disabled={hasAnswered}
                   onClick={() => submitAnswer(idx)}
                   style={{
+                    width: '100%',
                     height: '100%', 
                     borderRadius: '32px', 
                     border: 'none', 

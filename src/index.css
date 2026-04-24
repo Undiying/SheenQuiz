@@ -396,10 +396,12 @@ h1, h2, h3, .brand h1 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 2rem;
-    width: 100%;
-    height: 70vh;
-    padding: 2rem;
+    gap: 1.5rem;
+    width: 100vw;
+    max-width: 100%;
+    height: 75vh;
+    padding: 1rem;
+    margin: 0;
 }
 
 .action-card {
