@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3, Settings, Cpu, Zap, Bot } from 'lucide-react';
 
-const GameRoom = ({ profile, gameSession, onLeave }) => {
+export default function GameRoom({ profile, gameSession, onLeave }) {
   const [participants, setParticipants] = useState([]);
-  const [status, setStatus] = useState(gameSession.status);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(gameSession.current_question_index || 0);
+  const [status, setStatus] = useState(gameSession?.status || 'lobby');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(gameSession?.current_question_index || 0);
   const [questions, setQuestions] = useState([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -14,8 +14,10 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [responsesCount, setResponsesCount] = useState(0);
-  const questionIndexRef = React.useRef(currentQuestionIndex);
-  const questionsRef = React.useRef(questions);
+  
+  // Use refs for the realtime listener to avoid stale closure issues
+  const questionIndexRef = useRef(currentQuestionIndex);
+  const questionsRef = useRef(questions);
 
   useEffect(() => {
     questionIndexRef.current = currentQuestionIndex;
@@ -33,6 +35,8 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   ];
 
   useEffect(() => {
+    if (!gameSession?.id) return;
+
     fetchParticipants();
     fetchQuestions();
 
@@ -47,6 +51,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         fetchParticipants();
       })
       .subscribe();
+
     const sessionChannel = supabase
       .channel(`session:${gameSession.id}`)
       .on('postgres_changes', {
@@ -55,15 +60,17 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         table: 'game_sessions',
         filter: `id=eq.${gameSession.id}`
       }, (payload) => {
-        setStatus(payload.new.status);
-        setCurrentQuestionIndex(payload.new.current_question_index);
-        
-        if (payload.new.status === 'active') {
-          setShowLeaderboard(false);
-          startTimer();
-          fetchResponsesCount(payload.new.current_question_index);
-        } else if (payload.new.status === 'finished') {
-          setStatus('finished');
+        if (payload?.new) {
+          setStatus(payload.new.status);
+          setCurrentQuestionIndex(payload.new.current_question_index);
+          
+          if (payload.new.status === 'active') {
+            setShowLeaderboard(false);
+            startTimer();
+            fetchResponsesCount(payload.new.current_question_index);
+          } else if (payload.new.status === 'finished') {
+            setStatus('finished');
+          }
         }
       })
       .subscribe();
@@ -76,9 +83,8 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         table: 'student_responses',
         filter: `session_id=eq.${gameSession.id}`
       }, (payload) => {
-        // Use ref to get the absolute latest question data
         const currentQ = questionsRef.current[questionIndexRef.current];
-        if (currentQ && payload.new.question_id === currentQ.id) {
+        if (currentQ && payload?.new?.question_id === currentQ.id) {
           fetchResponsesCount(questionIndexRef.current);
         }
       })
@@ -89,20 +95,25 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       supabase.removeChannel(sessionChannel);
       supabase.removeChannel(responsesChannel);
     };
-  }, [gameSession.id]);
+  }, [gameSession?.id]);
 
   const fetchResponsesCount = async (index = currentQuestionIndex) => {
-    if (!questions[index]) return;
-    const { count } = await supabase
-      .from('student_responses')
-      .select('*', { count: 'exact', head: true })
-      .eq('session_id', gameSession.id)
-      .eq('question_id', questions[index].id);
-    
-    setResponsesCount(count || 0);
+    if (!gameSession?.id || !questionsRef.current[index]) return;
+    try {
+      const { count } = await supabase
+        .from('student_responses')
+        .select('*', { count: 'exact', head: true })
+        .eq('session_id', gameSession.id)
+        .eq('question_id', questionsRef.current[index].id);
+      
+      setResponsesCount(count || 0);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchParticipants = async () => {
+    if (!gameSession?.id) return;
     const { data } = await supabase
       .from('game_participants')
       .select('*, profiles(display_name, full_name)')
@@ -111,6 +122,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   };
 
   const fetchQuestions = async () => {
+    if (!gameSession?.quiz_id) return;
     const { data } = await supabase
       .from('questions')
       .select('*')
@@ -128,7 +140,6 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   };
 
   useEffect(() => {
-    // Early exit if all participants have answered
     if (status === 'active' && !showLeaderboard && participants.length > 0 && responsesCount >= participants.length) {
       setTimeLeft(0);
       showQuestionResults();
@@ -143,7 +154,9 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     }
   }, [timeLeft, status, showLeaderboard, responsesCount, participants.length]);
 
-  // Fallback Polling for Timer (if Realtime fails)
+  const isHost = profile?.id === gameSession?.host_id;
+
+  // Fallback Polling for Timer
   useEffect(() => {
     let interval;
     if (isHost && status === 'active' && !showLeaderboard && timeLeft > 0) {
@@ -155,6 +168,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   }, [isHost, status, showLeaderboard, timeLeft]);
 
   const showQuestionResults = async () => {
+    if (!questions[currentQuestionIndex]) return;
     const { data } = await supabase
       .from('student_responses')
       .select('*')
@@ -171,19 +185,20 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       .eq('session_id', gameSession.id);
 
     const scores = {};
-    data.forEach(resp => {
-      if (!scores[resp.profile_id]) {
-        scores[resp.profile_id] = { 
-          name: resp.profiles?.display_name || resp.profiles?.full_name || 'Anonymous Student',
-          score: 0 
-        };
-      }
-      if (resp.is_correct) {
-        // Simple scoring: 1000 base - (time_taken * 10)
-        const points = Math.max(500, 1000 - Math.floor(resp.time_taken * 25));
-        scores[resp.profile_id].score += points;
-      }
-    });
+    if (data) {
+      data.forEach(resp => {
+        if (!scores[resp.profile_id]) {
+          scores[resp.profile_id] = { 
+            name: resp.profiles?.display_name || resp.profiles?.full_name || 'Student',
+            score: 0 
+          };
+        }
+        if (resp.is_correct) {
+          const points = Math.max(500, 1000 - Math.floor(resp.time_taken * 25));
+          scores[resp.profile_id].score += points;
+        }
+      });
+    }
 
     const sorted = Object.values(scores).sort((a, b) => b.score - a.score);
     setLeaderboard(sorted);
@@ -222,16 +237,13 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   };
 
   const submitAnswer = async (optionIndex) => {
-    if (hasAnswered || timeLeft === 0) return;
+    if (hasAnswered || timeLeft === 0 || !questions[currentQuestionIndex]) return;
     setHasAnswered(true);
     const question = questions[currentQuestionIndex];
     const isCorrect = optionIndex === question.correct_answer;
-    
-    // Calculate points (max 1000, min 500 based on speed)
     const timeTaken = 20 - timeLeft;
     const points = isCorrect ? Math.max(500, 1000 - Math.floor(timeTaken * 25)) : 0;
     
-    // Save locally for immediate feedback when timer ends
     setLocalResult({ isCorrect, points });
 
     await supabase
@@ -246,10 +258,9 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       });
   };
 
-  const isHost = profile.id === gameSession.host_id;
   const currentQuestion = questions[currentQuestionIndex];
 
-  // --- RENDERING ---
+  if (!gameSession) return <div className="screen">Error: Missing session data</div>;
 
   if (status === 'lobby') {
     return (
@@ -268,13 +279,22 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
           <div className="players-grid">
             {participants.map(p => (
               <div key={p.id} className="player-tag animate-in">
-                {p.profiles.display_name || p.profiles.full_name}
+                {p.profiles?.display_name || p.profiles?.full_name || 'Joining...'}
               </div>
             ))}
           </div>
           <div style={{display: 'flex', gap: '1rem', marginTop: '2rem'}}>
             <button className="btn btn-outline" onClick={onLeave} style={{width: 'auto'}}><XCircle size={18} /> Exit</button>
-            {isHost && <button className="btn btn-primary" onClick={handleStartGame} style={{width: 'auto', padding: '0 3rem'}}><Rocket size={18} /> START</button>}
+            {isHost && (
+              <button 
+                className="btn btn-primary" 
+                onClick={handleStartGame} 
+                style={{width: 'auto', padding: '0 3rem'}}
+                disabled={questions.length === 0}
+              >
+                <Rocket size={18} /> {questions.length === 0 ? 'Loading Questions...' : 'START'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -350,14 +370,13 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         </div>
 
         <div className="question-area" style={{textAlign: 'center', maxWidth: '900px', margin: '2rem auto'}}>
-          {/* Only show the question text if Host or if results are being shown */}
           {(isHost || results) && (
             <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>
           )}
           
           {isHost || results ? (
             <div className="options-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>
-              {currentQuestion.options.map((opt, idx) => (
+              {currentQuestion.options?.map((opt, idx) => (
                 <div key={idx} style={{
                   background: 'var(--bg-card)', 
                   padding: '2rem', 
@@ -371,7 +390,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   textAlign: 'left'
                 }}>
                   <div style={{
-                    background: roboticsIcons[idx].color,
+                    background: roboticsIcons[idx]?.color || 'var(--primary)',
                     padding: '1rem',
                     borderRadius: '12px',
                     display: 'flex',
@@ -379,7 +398,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                     justifyContent: 'center',
                     color: 'white'
                   }}>
-                    {React.cloneElement(roboticsIcons[idx].icon, { size: 32 })}
+                    {roboticsIcons[idx] && React.cloneElement(roboticsIcons[idx].icon, { size: 32 })}
                   </div>
                   <span style={{fontSize: '1.5rem', fontWeight: 600}}>{opt}</span>
                 </div>
@@ -454,7 +473,11 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     );
   }
 
-  return <div>Loading Game...</div>;
-};
-
-export default GameRoom;
+  return (
+    <div className="screen">
+      <div className="animate-pulse" style={{color: 'var(--primary)', fontSize: '1.5rem'}}>
+        Loading Robotics Chamber...
+      </div>
+    </div>
+  );
+}

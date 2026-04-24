@@ -5,7 +5,7 @@ import QuizCreator from './QuizCreator';
 import StudentManager from './StudentManager';
 import ClassProgress from './ClassProgress';
 
-const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
+export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
   const [quizzes, setQuizzes] = useState([]);
   const [selectedClass, setSelectedClass] = useState('Explorer');
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,6 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
   const fetchQuizzes = async () => {
     setLoading(true);
     try {
-      // First get the class ID for the selected class name
       const { data: classData } = await supabase
         .from('classes')
         .select('id')
@@ -28,7 +27,7 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         .single();
 
       if (classData) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('quizzes')
           .select('*')
           .eq('teacher_id', profile.id)
@@ -60,7 +59,6 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
 
       if (error) throw error;
       
-      // Attach quiz info manually to avoid join complexity during insert
       const sessionWithQuiz = {
         ...data,
         quizzes: { title: quiz.title }
@@ -78,8 +76,6 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
     
     try {
       setLoading(true);
-      
-      // 1. Get all session IDs for this quiz
       const { data: sessions } = await supabase
         .from('game_sessions')
         .select('id')
@@ -87,41 +83,17 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         
       if (sessions && sessions.length > 0) {
         const sessionIds = sessions.map(s => s.id);
-        
-        // 2. Delete responses for these sessions
-        await supabase
-          .from('student_responses')
-          .delete()
-          .in('session_id', sessionIds);
-          
-        // 3. Delete participants for these sessions
-        await supabase
-          .from('game_participants')
-          .delete()
-          .in('session_id', sessionIds);
-          
-        // 4. Delete the sessions themselves
-        await supabase
-          .from('game_sessions')
-          .delete()
-          .eq('quiz_id', quizId);
+        await supabase.from('student_responses').delete().in('session_id', sessionIds);
+        await supabase.from('game_participants').delete().in('session_id', sessionIds);
+        await supabase.from('game_sessions').delete().eq('quiz_id', quizId);
       }
       
-      // 5. Delete questions
-      await supabase
-        .from('questions')
-        .delete()
-        .eq('quiz_id', quizId);
-
-      // 6. Finally delete the quiz
-      const { error } = await supabase
-        .from('quizzes')
-        .delete()
-        .eq('id', quizId);
+      await supabase.from('questions').delete().eq('quiz_id', quizId);
+      const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
         
       if (error) throw error;
       setQuizzes(quizzes.filter(q => q.id !== quizId));
-      alert('Quiz and all related data deleted successfully.');
+      alert('Quiz deleted successfully.');
     } catch (err) {
       alert('Error deleting quiz: ' + err.message);
     }
@@ -167,21 +139,6 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         <div className="user-info" style={{position: 'relative', zIndex: 1}}>
           <h2>Teacher Dashboard</h2>
           <p>Welcome back, {profile.full_name}</p>
-        </div>
-        <div className="mascot-container" style={{
-          position: 'absolute',
-          right: '150px',
-          top: '-20px',
-          width: '150px',
-          height: '150px',
-          opacity: 0.6,
-          pointerEvents: 'none'
-        }}>
-          <img 
-            src="/robotic_mascot_hero_1777034901017.png" 
-            alt="Mascot" 
-            style={{width: '100%', height: '100%', objectFit: 'contain'}} 
-          />
         </div>
         <button className="btn btn-outline" style={{width: 'auto', position: 'relative', zIndex: 1}} onClick={onLogout}>
           <LogOut size={18} />
@@ -279,6 +236,4 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
       </div>
     </div>
   );
-};
-
-export default TeacherDashboard;
+}
