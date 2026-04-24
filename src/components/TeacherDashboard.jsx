@@ -140,10 +140,32 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
           <h2>Teacher Dashboard</h2>
           <p>Welcome back, {profile.full_name}</p>
         </div>
-        <button className="btn btn-outline" style={{width: 'auto', position: 'relative', zIndex: 1}} onClick={onLogout}>
-          <LogOut size={18} />
-          Logout
-        </button>
+        <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+          <button 
+            className="btn btn-outline" 
+            style={{width: 'auto', borderColor: 'var(--danger)', color: 'var(--danger)'}}
+            onClick={async () => {
+              if (window.confirm('This will end ALL your active and lobby game sessions for ALL students. Continue?')) {
+                const { error } = await supabase
+                  .from('game_sessions')
+                  .update({ status: 'finished' })
+                  .eq('host_id', profile.id)
+                  .neq('status', 'finished');
+                
+                if (!error) {
+                  alert('All active sessions have been closed.');
+                  fetchQuizzes();
+                }
+              }
+            }}
+          >
+            End All My Sessions
+          </button>
+          <button className="btn btn-outline" style={{width: 'auto', position: 'relative', zIndex: 1}} onClick={onLogout}>
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="class-selector">

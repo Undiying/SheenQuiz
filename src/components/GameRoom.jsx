@@ -111,6 +111,18 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     setShowLeaderboard(true);
   };
 
+  const handleLeave = async () => {
+    if (!isHost && gameSession?.id) {
+      // Remove student from participants so they don't auto-rejoin
+      await supabase
+        .from('game_participants')
+        .delete()
+        .eq('session_id', gameSession.id)
+        .eq('profile_id', profile.id);
+    }
+    onLeave();
+  };
+
   const handleStartGame = async () => { await supabase.from('game_sessions').update({ status: 'active', current_question_index: 0 }).eq('id', gameSession.id); };
   const handleStopSession = async () => { if (window.confirm('Stop game session?')) await supabase.from('game_sessions').update({ status: 'finished' }).eq('id', gameSession.id); };
   const handleNextQuestion = async () => {
@@ -138,7 +150,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
       <button 
         className="btn" 
         style={{position: 'fixed', top: '1rem', left: '1rem', zIndex: 9999, width: 'auto', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', color: 'white', padding: '0.6rem 1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)'}}
-        onClick={onLeave}
+        onClick={handleLeave}
       >
         <XCircle size={18} style={{marginRight: '8px', verticalAlign: 'middle'}}/> Home
       </button>
@@ -181,7 +193,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
             <div className="feedback-screen animate-in" style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: localResult?.isCorrect ? 'var(--success)' : (localResult ? 'var(--danger)' : 'var(--bg-dark)'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100}}>
               <h1 style={{fontSize: '4rem', color: 'white', marginBottom: '1rem'}}>{localResult?.isCorrect ? 'Correct!' : (localResult ? 'Incorrect' : "Time's Up!")}</h1>
               <p style={{marginTop: '3rem', color: 'rgba(255,255,255,0.7)'}}>Teacher is reviewing results...</p>
-              <button className="btn" style={{marginTop: '3rem', backgroundColor: '#ef4444', color: 'white', width: 'auto', padding: '1rem 2rem', fontWeight: 'bold'}} onClick={onLeave}>EXIT GAME (BACK TO DASHBOARD)</button>
+              <button className="btn" style={{marginTop: '3rem', backgroundColor: '#ef4444', color: 'white', width: 'auto', padding: '1rem 2rem', fontWeight: 'bold'}} onClick={handleLeave}>EXIT GAME (BACK TO DASHBOARD)</button>
             </div>
           )}
         </div>
