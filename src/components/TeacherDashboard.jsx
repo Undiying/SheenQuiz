@@ -55,14 +55,18 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
           status: 'lobby',
           host_id: profile.id
         })
-        .select(`
-          *,
-          quizzes (title)
-        `)
+        .select()
         .single();
 
       if (error) throw error;
-      if (data) onHostGame(data);
+      
+      // Attach quiz info manually to avoid join complexity during insert
+      const sessionWithQuiz = {
+        ...data,
+        quizzes: { title: quiz.title }
+      };
+      
+      onHostGame(sessionWithQuiz);
     } catch (err) {
       alert('Failed to host game: ' + err.message);
     }
@@ -70,9 +74,46 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
 
   const handleDeleteQuiz = async (e, quizId) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this quiz and all its questions?')) return;
+    if (!window.confirm('Are you sure you want to delete this quiz and all its history? This cannot be undone.')) return;
     
     try {
+      setLoading(true);
+      
+      // 1. Get all session IDs for this quiz
+      const { data: sessions } = await supabase
+        .from('game_sessions')
+        .select('id')
+        .eq('quiz_id', quizId);
+        
+      if (sessions && sessions.length > 0) {
+        const sessionIds = sessions.map(s => s.id);
+        
+        // 2. Delete responses for these sessions
+        await supabase
+          .from('student_responses')
+          .delete()
+          .in('session_id', sessionIds);
+          
+        // 3. Delete participants for these sessions
+        await supabase
+          .from('game_participants')
+          .delete()
+          .in('session_id', sessionIds);
+          
+        // 4. Delete the sessions themselves
+        await supabase
+          .from('game_sessions')
+          .delete()
+          .eq('quiz_id', quizId);
+      }
+      
+      // 5. Delete questions
+      await supabase
+        .from('questions')
+        .delete()
+        .eq('quiz_id', quizId);
+
+      // 6. Finally delete the quiz
       const { error } = await supabase
         .from('quizzes')
         .delete()
@@ -80,9 +121,11 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         
       if (error) throw error;
       setQuizzes(quizzes.filter(q => q.id !== quizId));
+      alert('Quiz and all related data deleted successfully.');
     } catch (err) {
       alert('Error deleting quiz: ' + err.message);
     }
+    setLoading(false);
   };
 
   if (isCreating) {
