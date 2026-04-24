@@ -366,16 +366,29 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
                 END QUESTION
               </button>
             )}
+            <div style={{display: 'flex', alignItems: 'center', gap: '2rem'}}>
             <div className="question-count" style={{fontSize: '1.2rem', fontWeight: 600}}>
               Question {currentQuestionIndex + 1} of {questions.length}
             </div>
-            {isHost && (
+            {isHost ? (
               <button 
                 className="btn btn-outline btn-sm" 
                 style={{borderColor: 'var(--danger)', color: 'var(--danger)', width: 'auto'}}
                 onClick={handleStopSession}
               >
                 STOP GAME
+              </button>
+            ) : (
+              <button 
+                className="btn btn-outline btn-sm" 
+                style={{width: 'auto', opacity: 0.7}}
+                onClick={() => {
+                  if (window.confirm('Leave this game and return to dashboard?')) {
+                    onLeave();
+                  }
+                }}
+              >
+                <XCircle size={16} /> Exit
               </button>
             )}
           </div>
