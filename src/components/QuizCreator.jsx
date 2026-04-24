@@ -6,12 +6,12 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState([
-    { question_text: '', options: ['', '', '', ''], correct_answer: 0 }
+    { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice' }
   ]);
   const [saving, setSaving] = useState(false);
 
   const addQuestion = () => {
-    setQuestions([...questions, { question_text: '', options: ['', '', '', ''], correct_answer: 0 }]);
+    setQuestions([...questions, { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice' }]);
   };
 
   const removeQuestion = (index) => {
@@ -27,6 +27,18 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
   const updateOption = (qIndex, oIndex, text) => {
     const newQuestions = [...questions];
     newQuestions[qIndex].options[oIndex] = text;
+    setQuestions(newQuestions);
+  };
+
+  const updateQuestionType = (index, type) => {
+    const newQuestions = [...questions];
+    newQuestions[index].type = type;
+    if (type === 'true_false') {
+      newQuestions[index].options = ['True', 'False', '', ''];
+      if (newQuestions[index].correct_answer > 1) newQuestions[index].correct_answer = 0;
+    } else {
+      newQuestions[index].options = ['', '', '', ''];
+    }
     setQuestions(newQuestions);
   };
 
@@ -69,8 +81,9 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
       const questionsToInsert = questions.map((q, idx) => ({
         quiz_id: quiz.id,
         question_text: q.question_text,
-        options: q.options,
+        options: q.type === 'true_false' ? ['True', 'False'] : q.options,
         correct_answer: q.correct_answer,
+        type: q.type,
         sort_order: idx
       }));
 
@@ -139,17 +152,31 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
                 )}
               </div>
               
-              <div className="form-group">
-                <input 
-                  type="text" 
-                  placeholder="Enter your question here"
-                  value={q.question_text}
-                  onChange={(e) => updateQuestionText(qIndex, e.target.value)}
-                />
+              <div style={{display: 'flex', gap: '1rem', marginBottom: '1.5rem'}}>
+                <div className="form-group" style={{flex: 1, marginBottom: 0}}>
+                  <label>Question Type</label>
+                  <select 
+                    style={{width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '0.8rem', color: 'white'}}
+                    value={q.type}
+                    onChange={(e) => updateQuestionType(qIndex, e.target.value)}
+                  >
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="true_false">True / False</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{flex: 2, marginBottom: 0}}>
+                  <label>Question Text</label>
+                  <input 
+                    type="text" 
+                    placeholder="Enter your question here"
+                    value={q.question_text}
+                    onChange={(e) => updateQuestionText(qIndex, e.target.value)}
+                  />
+                </div>
               </div>
 
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
-                {q.options.map((opt, oIndex) => (
+                {(q.type === 'true_false' ? q.options.slice(0, 2) : q.options).map((opt, oIndex) => (
                   <div key={oIndex} style={{position: 'relative'}}>
                     <input 
                       type="text" 

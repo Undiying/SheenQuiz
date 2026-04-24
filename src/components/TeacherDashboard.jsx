@@ -126,8 +126,8 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         </div>
       </div>
 
-      <div className="quiz-section">
-        <div className="section-header">
+      <div className="quiz-section" style={{marginTop: '2rem'}}>
+        <div className="section-header" style={{marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <h3>My {selectedClass} Quizzes</h3>
           <button 
             className="btn btn-primary btn-sm" 

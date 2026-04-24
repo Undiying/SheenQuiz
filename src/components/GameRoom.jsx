@@ -52,6 +52,8 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
           setShowLeaderboard(false);
           startTimer();
           fetchResponsesCount(payload.new.current_question_index);
+        } else if (payload.new.status === 'finished') {
+          setStatus('finished');
         }
       })
       .subscribe();
@@ -63,8 +65,11 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         schema: 'public',
         table: 'student_responses',
         filter: `session_id=eq.${gameSession.id}`
-      }, () => {
-        fetchResponsesCount();
+      }, (payload) => {
+        // Double check it's for the current question
+        if (questions[currentQuestionIndex] && payload.new.question_id === questions[currentQuestionIndex].id) {
+          fetchResponsesCount(currentQuestionIndex);
+        }
       })
       .subscribe();
 
@@ -168,6 +173,15 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       .from('game_sessions')
       .update({ status: 'active', current_question_index: 0 })
       .eq('id', gameSession.id);
+  };
+
+  const handleStopSession = async () => {
+    if (window.confirm('Are you sure you want to stop the game session for everyone?')) {
+      await supabase
+        .from('game_sessions')
+        .update({ status: 'finished' })
+        .eq('id', gameSession.id);
+    }
   };
 
   const handleNextQuestion = async () => {
@@ -297,8 +311,19 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
             <Timer />
             <span style={{fontSize: '2rem', fontWeight: 800}}>{timeLeft}</span>
           </div>
-          <div className="question-count" style={{fontSize: '1.2rem', fontWeight: 600}}>
-            Question {currentQuestionIndex + 1} of {questions.length}
+          <div style={{display: 'flex', alignItems: 'center', gap: '2rem'}}>
+            <div className="question-count" style={{fontSize: '1.2rem', fontWeight: 600}}>
+              Question {currentQuestionIndex + 1} of {questions.length}
+            </div>
+            {isHost && (
+              <button 
+                className="btn btn-outline btn-sm" 
+                style={{borderColor: 'var(--danger)', color: 'var(--danger)'}}
+                onClick={handleStopSession}
+              >
+                STOP GAME
+              </button>
+            )}
           </div>
         </div>
 
@@ -339,7 +364,7 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
               ))}
             </div>
           ) : (
-            <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', width: '100%', height: '60vh'}}>
+            <div className="response-grid">
               {roboticsIcons.map((item, idx) => (
                 <button 
                   key={idx}
@@ -348,23 +373,20 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   onClick={() => submitAnswer(idx)}
                   style={{
                     height: '100%', 
-                    borderRadius: '24px', 
+                    borderRadius: '32px', 
                     border: 'none', 
                     cursor: hasAnswered ? 'default' : 'pointer',
                     opacity: hasAnswered ? 0.6 : 1,
                     background: item.color,
-                    boxShadow: '0 10px 0 rgba(0,0,0,0.15)',
+                    boxShadow: '0 12px 0 rgba(0,0,0,0.15)',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    transition: 'transform 0.1s',
-                    gap: '1rem'
+                    transition: 'all 0.1s'
                   }}
                 >
-                  {React.cloneElement(item.icon, { size: 80 })}
-                  <span style={{fontSize: '1rem', opacity: 0.8, fontFamily: "'Outfit', sans-serif"}}>{item.label}</span>
+                  {React.cloneElement(item.icon, { size: 100 })}
                 </button>
               ))}
             </div>
