@@ -37,7 +37,8 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         fetchParticipants();
       })
       .subscribe();
-
+    const sessionChannel = supabase
+      .channel(`session:${gameSession.id}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
