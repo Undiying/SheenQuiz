@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Plus, Play, Users, LayoutDashboard, LogOut } from 'lucide-react';
 import QuizCreator from './QuizCreator';
 import StudentManager from './StudentManager';
+import ClassProgress from './ClassProgress';
 
 const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
   const [quizzes, setQuizzes] = useState([]);
@@ -10,6 +11,7 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isManagingStudents, setIsManagingStudents] = useState(false);
+  const [isViewingProgress, setIsViewingProgress] = useState(false);
 
   useEffect(() => {
     fetchQuizzes();
@@ -68,6 +70,15 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         profile={profile}
         selectedClass={selectedClass}
         onCancel={() => setIsManagingStudents(false)}
+      />
+    );
+  }
+
+  if (isViewingProgress) {
+    return (
+      <ClassProgress 
+        selectedClass={selectedClass}
+        onCancel={() => setIsViewingProgress(false)}
       />
     );
   }
@@ -145,7 +156,11 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
           <h4>Manage Students</h4>
           <p>Add students to {selectedClass} and set passwords</p>
         </div>
-        <div className="action-card">
+        <div 
+          className="action-card"
+          onClick={() => setIsViewingProgress(true)}
+          style={{cursor: 'pointer'}}
+        >
           <LayoutDashboard size={32} />
           <h4>Class Progress</h4>
           <p>View achievement reports for {selectedClass}</p>

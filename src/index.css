@@ -1,26 +1,26 @@
 :root {
-    /* Color Palette */
-    --bg-dark: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.7);
-    --primary: #6366f1;
-    --primary-glow: rgba(99, 102, 241, 0.3);
-    --secondary: #ec4899;
-    --accent: #8b5cf6;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --glass-border: rgba(255, 255, 255, 0.1);
+    /* Arcade Color Palette */
+    --bg-dark: #0a0a2a;
+    --bg-card: #1a1a4a;
+    --primary: #f000ff; /* Hot Pink */
+    --primary-glow: rgba(240, 0, 255, 0.5);
+    --secondary: #00ffff; /* Cyan */
+    --accent: #ffea00; /* Yellow */
+    --success: #39ff14; /* Neon Green */
+    --warning: #ffea00;
+    --danger: #ff003c;
+    --text-primary: #ffffff;
+    --text-secondary: #00ffff;
+    --glass-border: var(--primary);
     
     /* Shape Colors */
-    --triangle-color: #e21b3c;
-    --diamond-color: #1368ce;
-    --circle-color: #d89e00;
-    --square-color: #26890c;
+    --triangle-color: #ff003c;
+    --diamond-color: #00ffff;
+    --circle-color: #ffea00;
+    --square-color: #39ff14;
     
     /* Animation Tokens */
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: all 0.1s ease-in-out;
 }
 
 * {
@@ -30,15 +30,21 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+    font-family: 'VT323', monospace;
+    font-size: 1.4rem;
+    background-color: var(--bg-dark);
+    background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%;
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
 }
 
 h1, h2, h3, .brand h1 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Press Start 2P', cursive;
+    text-transform: uppercase;
+    line-height: 1.4;
+    text-shadow: 2px 2px 0px #000;
 }
 
 /* Base Component Styles */
@@ -66,14 +72,14 @@ h1, h2, h3, .brand h1 {
 }
 
 .logo-icon {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: var(--primary);
     width: 64px;
     height: 64px;
-    border-radius: 18px;
+    border: 4px solid #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 30px var(--primary-glow);
+    box-shadow: 6px 6px 0px var(--secondary);
 }
 
 .logo-icon svg {
@@ -84,26 +90,21 @@ h1, h2, h3, .brand h1 {
 
 .brand h1 {
     font-size: 2.5rem;
-    font-weight: 800;
-    background: linear-gradient(to right, #fff, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--accent);
 }
 
 .auth-card {
     background: var(--bg-card);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
+    border: 4px solid var(--secondary);
     padding: 2.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 12px 12px 0px #000;
 }
 
 .auth-tabs {
     display: flex;
-    background: rgba(15, 23, 42, 0.5);
+    background: var(--bg-dark);
     padding: 0.4rem;
-    border-radius: 14px;
+    border: 2px solid var(--primary);
     margin-bottom: 2rem;
 }
 
@@ -113,16 +114,15 @@ h1, h2, h3, .brand h1 {
     border: none;
     background: transparent;
     color: var(--text-secondary);
-    font-weight: 600;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.7rem;
     cursor: pointer;
-    border-radius: 10px;
     transition: var(--transition);
 }
 
 .tab-btn.active {
     background: var(--primary);
     color: white;
-    box-shadow: 0 4px 12px var(--primary-glow);
 }
 
 .form-group {
@@ -133,71 +133,73 @@ h1, h2, h3, .brand h1 {
 .form-group label {
     display: block;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 1.2rem;
     margin-bottom: 0.6rem;
-    font-weight: 500;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.8rem;
 }
 
 .form-group input {
     width: 100%;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
+    background: var(--bg-dark);
+    border: 2px solid var(--secondary);
     padding: 1rem;
     color: white;
-    font-size: 1rem;
+    font-family: 'VT323', monospace;
+    font-size: 1.5rem;
     transition: var(--transition);
 }
 
 .form-group input:focus {
     outline: none;
+    background: #000;
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px var(--primary-glow);
 }
 
 .btn {
     width: 100%;
     padding: 1rem;
-    border: none;
-    border-radius: 14px;
-    font-size: 1rem;
-    font-weight: 700;
+    border: 4px solid #fff;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.6rem;
+    box-shadow: 4px 4px 0px #000;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+    background: var(--primary);
     color: white;
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px var(--primary-glow);
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000;
 }
 
 .btn-secondary {
-    background: linear-gradient(135deg, var(--secondary), #be185d);
-    color: white;
+    background: var(--secondary);
+    color: #000;
 }
 
 .btn-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(236, 72, 153, 0.3);
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000;
 }
 
 .btn-outline {
-    background: transparent;
-    border: 1px solid var(--glass-border);
-    color: var(--text-primary);
+    background: var(--bg-dark);
+    border-color: var(--secondary);
+    color: var(--secondary);
 }
 
 .btn-outline:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--secondary);
+    color: #000;
 }
 
 /* Dashboard Styles */
@@ -210,19 +212,18 @@ h1, h2, h3, .brand h1 {
     margin-bottom: 3rem;
     padding: 1.5rem;
     background: var(--bg-card);
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
+    border: 4px solid var(--primary);
+    box-shadow: 8px 8px 0px #000;
 }
 
 .pin-section {
     background: var(--bg-card);
     padding: 3rem;
-    border-radius: 30px;
     text-align: center;
     width: 100%;
     max-width: 500px;
-    border: 2px solid var(--primary);
-    box-shadow: 0 0 40px var(--primary-glow);
+    border: 4px solid var(--accent);
+    box-shadow: 12px 12px 0px #000;
     margin-bottom: 2rem;
 }
 
@@ -234,15 +235,14 @@ h1, h2, h3, .brand h1 {
 
 .pin-input-group input {
     flex: 1;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
+    background: #000;
+    border: 4px solid var(--secondary);
     padding: 1rem;
-    color: white;
+    color: var(--success);
+    font-family: 'Press Start 2P', cursive;
     font-size: 1.5rem;
     text-align: center;
-    letter-spacing: 0.5rem;
-    font-weight: 800;
+    letter-spacing: 0.2rem;
 }
 
 .stats-grid {
@@ -256,8 +256,8 @@ h1, h2, h3, .brand h1 {
 .stat-card {
     background: var(--bg-card);
     padding: 1.5rem;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
+    border: 4px solid var(--secondary);
+    box-shadow: 6px 6px 0px #000;
     text-align: center;
 }
 
@@ -269,19 +269,20 @@ h1, h2, h3, .brand h1 {
 
 .chip {
     padding: 0.8rem 1.5rem;
-    border-radius: 50px;
-    border: 1px solid var(--glass-border);
-    background: var(--bg-card);
+    border: 2px solid var(--primary);
+    background: var(--bg-dark);
     color: var(--text-secondary);
     cursor: pointer;
     transition: var(--transition);
-    font-weight: 600;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.6rem;
+    text-transform: uppercase;
 }
 
 .chip.active {
     background: var(--primary);
     color: white;
-    border-color: var(--primary);
+    box-shadow: 4px 4px 0px #000;
 }
 
 .quiz-grid {
@@ -295,14 +296,14 @@ h1, h2, h3, .brand h1 {
 .quiz-card {
     background: var(--bg-card);
     padding: 2rem;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
+    border: 4px solid var(--secondary);
+    box-shadow: 8px 8px 0px #000;
     transition: var(--transition);
 }
 
 .quiz-card:hover {
-    border-color: var(--primary);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0px var(--primary);
 }
 
 /* Lobby Styles */
@@ -318,10 +319,10 @@ h1, h2, h3, .brand h1 {
 .lobby-header {
     background: var(--bg-card);
     padding: 3rem;
-    border-radius: 40px;
     text-align: center;
     width: 100%;
-    border: 2px solid var(--glass-border);
+    border: 4px solid var(--accent);
+    box-shadow: 12px 12px 0px #000;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -345,9 +346,10 @@ h1, h2, h3, .brand h1 {
     background: var(--primary);
     color: white;
     padding: 1rem 2rem;
-    border-radius: 14px;
-    font-weight: 700;
-    font-size: 1.2rem;
+    border: 4px solid #fff;
+    box-shadow: 4px 4px 0px #000;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.8rem;
 }
 
 @keyframes fadeIn {
