@@ -26,11 +26,13 @@ const StudentDashboard = ({ profile, onLogout, onJoinGame }) => {
 
     if (participantData) {
       // Check if that session is still active or in lobby
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
       const { data: activeSession } = await supabase
         .from('game_sessions')
         .select('*, quizzes(title)')
         .eq('id', participantData.session_id)
         .neq('status', 'finished')
+        .gt('created_at', fourHoursAgo)
         .single();
 
       if (activeSession) {
