@@ -1,11 +1,11 @@
 :root {
-    /* Modern Tech Color Palette */
-    --bg-dark: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.6);
-    --primary: #3b82f6; /* Electric Blue */
-    --primary-glow: rgba(59, 130, 246, 0.4);
-    --secondary: #8b5cf6; /* Violet */
-    --accent: #10b981; /* Emerald */
+    /* Academy Tech Color Palette */
+    --bg-dark: #020617; /* Very Dark Navy/Black */
+    --bg-card: rgba(15, 23, 42, 0.7);
+    --primary: #2563eb; /* Academy Blue */
+    --primary-glow: rgba(37, 99, 235, 0.4);
+    --secondary: #64748b; /* Slate */
+    --accent: #f59e0b; /* Warm Amber */
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -13,11 +13,11 @@
     --text-secondary: #94a3b8;
     --glass-border: rgba(255, 255, 255, 0.1);
     
-    /* Shape Colors */
-    --triangle-color: #ef4444;
-    --diamond-color: #3b82f6;
-    --circle-color: #f59e0b;
-    --square-color: #10b981;
+    /* Shape/Icon Colors (Robotics Theme) */
+    --gear-color: #3b82f6;
+    --cpu-color: #8b5cf6;
+    --bolt-color: #f59e0b;
+    --bot-color: #10b981;
     
     /* Animation Tokens */
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -31,14 +31,13 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #020617;
+    background-color: var(--bg-dark);
     background-image: 
-        radial-gradient(at 15% 15%, rgba(59, 130, 246, 0.15) 0px, transparent 40%),
-        radial-gradient(at 85% 85%, rgba(139, 92, 246, 0.15) 0px, transparent 40%),
-        radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
+        radial-gradient(at 15% 15%, rgba(37, 99, 235, 0.1) 0px, transparent 40%),
+        radial-gradient(at 85% 85%, rgba(245, 158, 11, 0.05) 0px, transparent 40%),
         linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 50px 50px, 50px 50px;
+    background-size: 100% 100%, 100% 100%, 60px 60px, 60px 60px;
     color: var(--text-primary);
     min-height: 100vh;
     overflow-x: hidden;
@@ -184,24 +183,26 @@ h1, h2, h3, .brand h1 {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: var(--primary);
     color: white;
+    box-shadow: 0 4px 14px 0 var(--primary-glow);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px var(--primary-glow);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+    background: #3b82f6;
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--accent);
     color: white;
-    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.3);
 }
 
 .btn-secondary:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.2);
+    background: #fbbf24;
 }
 
 .btn-outline {

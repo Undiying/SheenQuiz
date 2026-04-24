@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3 } from 'lucide-react';
+import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3, Settings, Cpu, Zap, Bot } from 'lucide-react';
 
 const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [participants, setParticipants] = useState([]);
@@ -13,6 +13,14 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
   const [results, setResults] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [responsesCount, setResponsesCount] = useState(0);
+
+  const roboticsIcons = [
+    { icon: <Settings />, color: '#3b82f6', label: 'Gear' },
+    { icon: <Cpu />, color: '#8b5cf6', label: 'CPU' },
+    { icon: <Zap />, color: '#f59e0b', label: 'Bolt' },
+    { icon: <Bot />, color: '#10b981', label: 'Bot' }
+  ];
 
   useEffect(() => {
     fetchParticipants();
@@ -30,8 +38,6 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
       })
       .subscribe();
 
-    const sessionChannel = supabase
-      .channel(`session:${gameSession.id}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
@@ -41,19 +47,43 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
         setStatus(payload.new.status);
         setCurrentQuestionIndex(payload.new.current_question_index);
         
-        // If status changes to active or index changes, reset question state
         if (payload.new.status === 'active') {
           setShowLeaderboard(false);
           startTimer();
+          fetchResponsesCount(payload.new.current_question_index);
         }
+      })
+      .subscribe();
+
+    const responsesChannel = supabase
+      .channel(`responses:${gameSession.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'student_responses',
+        filter: `session_id=eq.${gameSession.id}`
+      }, () => {
+        fetchResponsesCount();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(participantsChannel);
       supabase.removeChannel(sessionChannel);
+      supabase.removeChannel(responsesChannel);
     };
   }, [gameSession.id]);
+
+  const fetchResponsesCount = async (index = currentQuestionIndex) => {
+    if (!questions[index]) return;
+    const { count } = await supabase
+      .from('student_responses')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', gameSession.id)
+      .eq('question_id', questions[index].id);
+    
+    setResponsesCount(count || 0);
+  };
 
   const fetchParticipants = async () => {
     const { data } = await supabase
@@ -77,16 +107,24 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     setHasAnswered(false);
     setResults(null);
     setLocalResult(null);
+    setResponsesCount(0);
   };
 
   useEffect(() => {
+    // Early exit if all participants have answered
+    if (status === 'active' && !showLeaderboard && participants.length > 0 && responsesCount >= participants.length) {
+      setTimeLeft(0);
+      showQuestionResults();
+      return;
+    }
+
     if (status === 'active' && !showLeaderboard && timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && status === 'active' && !showLeaderboard) {
       showQuestionResults();
     }
-  }, [timeLeft, status, showLeaderboard]);
+  }, [timeLeft, status, showLeaderboard, responsesCount, participants.length]);
 
   const showQuestionResults = async () => {
     const { data } = await supabase
@@ -278,20 +316,30 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   borderRadius: '24px', 
                   border: results && idx === currentQuestion.correct_answer ? '4px solid var(--success)' : '1px solid var(--glass-border)',
                   position: 'relative',
-                  opacity: results && idx !== currentQuestion.correct_answer ? 0.4 : 1
+                  opacity: results && idx !== currentQuestion.correct_answer ? 0.4 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1.5rem',
+                  textAlign: 'left'
                 }}>
-                  <span style={{fontSize: '1.5rem'}}>{opt}</span>
+                  <div style={{
+                    background: roboticsIcons[idx].color,
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white'
+                  }}>
+                    {React.cloneElement(roboticsIcons[idx].icon, { size: 32 })}
+                  </div>
+                  <span style={{fontSize: '1.5rem', fontWeight: 600}}>{opt}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%', height: '60vh'}}>
-              {[
-                { shape: 'triangle', color: '#e21b3c', label: '▲' },
-                { shape: 'diamond', color: '#1368ce', label: '◆' },
-                { shape: 'circle', color: '#d89e00', label: '●' },
-                { shape: 'square', color: '#26890c', label: '■' }
-              ].map((item, idx) => (
+            <div className="response-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', width: '100%', height: '60vh'}}>
+              {roboticsIcons.map((item, idx) => (
                 <button 
                   key={idx}
                   className="response-btn"
@@ -299,21 +347,23 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
                   onClick={() => submitAnswer(idx)}
                   style={{
                     height: '100%', 
-                    borderRadius: '16px', 
+                    borderRadius: '24px', 
                     border: 'none', 
                     cursor: hasAnswered ? 'default' : 'pointer',
                     opacity: hasAnswered ? 0.6 : 1,
                     background: item.color,
-                    boxShadow: '0 8px 0 rgba(0,0,0,0.2)',
+                    boxShadow: '0 10px 0 rgba(0,0,0,0.15)',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '6rem',
                     color: 'white',
-                    transition: 'transform 0.1s'
+                    transition: 'transform 0.1s',
+                    gap: '1rem'
                   }}
                 >
-                  {item.label}
+                  {React.cloneElement(item.icon, { size: 80 })}
+                  <span style={{fontSize: '1rem', opacity: 0.8, fontFamily: "'Outfit', sans-serif"}}>{item.label}</span>
                 </button>
               ))}
             </div>
