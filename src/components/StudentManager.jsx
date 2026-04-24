@@ -79,15 +79,14 @@ const StudentManager = ({ profile, selectedClass, onCancel }) => {
         .from('game_participants')
         .select(`
           session_id,
-          final_score,
+          score,
           game_sessions (
             id,
             created_at,
             quizzes (title)
           )
         `)
-        .eq('profile_id', student.id)
-        .order('created_at', { foreignTable: 'game_sessions', ascending: false });
+        .eq('profile_id', student.id);
 
       const { data: responses } = await supabase
         .from('student_responses')
@@ -258,9 +257,9 @@ const StudentManager = ({ profile, selectedClass, onCancel }) => {
                         <div style={{fontSize: '0.8rem', opacity: 0.7}}>Played on {new Date(game.game_sessions?.created_at).toLocaleDateString()}</div>
                       </div>
                       <div style={{textAlign: 'right'}}>
-                        <div style={{fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)'}}>{game.final_score} pts</div>
+                        <div style={{fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)'}}>{game.score || 0} pts</div>
                         <div style={{fontSize: '0.8rem', color: 'var(--success)'}}>
-                          {Math.round((game.responses.filter(r => r.is_correct).length / game.responses.length) * 100) || 0}% Accuracy
+                          {game.responses.length > 0 ? Math.round((game.responses.filter(r => r.is_correct).length / game.responses.length) * 100) : 0}% Accuracy
                         </div>
                       </div>
                     </div>

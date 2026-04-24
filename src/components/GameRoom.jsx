@@ -143,6 +143,17 @@ const GameRoom = ({ profile, gameSession, onLeave }) => {
     }
   }, [timeLeft, status, showLeaderboard, responsesCount, participants.length]);
 
+  // Fallback Polling for Timer (if Realtime fails)
+  useEffect(() => {
+    let interval;
+    if (isHost && status === 'active' && !showLeaderboard && timeLeft > 0) {
+      interval = setInterval(() => {
+        fetchResponsesCount(questionIndexRef.current);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [isHost, status, showLeaderboard, timeLeft]);
+
   const showQuestionResults = async () => {
     const { data } = await supabase
       .from('student_responses')

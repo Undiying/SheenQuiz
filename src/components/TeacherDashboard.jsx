@@ -50,6 +50,22 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
     }
   };
 
+  const handleDeleteQuiz = async (e, quizId) => {
+    e.stopPropagation(); // Prevent Host Live from triggering
+    if (!window.confirm('Are you sure you want to delete this quiz and all its questions?')) return;
+    
+    const { error } = await supabase
+      .from('quizzes')
+      .delete()
+      .eq('id', quizId);
+      
+    if (error) {
+      alert('Error deleting quiz: ' + error.message);
+    } else {
+      setQuizzes(quizzes.filter(q => q.id !== quizId));
+    }
+  };
+
   if (isCreating) {
     return (
       <QuizCreator 
