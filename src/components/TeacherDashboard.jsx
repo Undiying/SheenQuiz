@@ -146,11 +146,10 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         )}
       </div>
 
-      <div className="action-grid" style={{marginTop: '3rem'}}>
+      <div className="action-grid">
         <div 
           className="action-card" 
           onClick={() => setIsManagingStudents(true)}
-          style={{cursor: 'pointer'}}
         >
           <Users size={32} />
           <h4>Manage Students</h4>
@@ -159,7 +158,6 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         <div 
           className="action-card"
           onClick={() => setIsViewingProgress(true)}
-          style={{cursor: 'pointer'}}
         >
           <LayoutDashboard size={32} />
           <h4>Class Progress</h4>
