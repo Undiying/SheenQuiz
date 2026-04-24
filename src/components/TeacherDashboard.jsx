@@ -85,12 +85,27 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
 
   return (
     <div className="screen animate-in" style={{justifyContent: 'flex-start', padding: '2rem'}}>
-      <div className="dashboard-header">
-        <div className="user-info">
+      <div className="dashboard-header" style={{position: 'relative', overflow: 'hidden'}}>
+        <div className="user-info" style={{position: 'relative', zIndex: 1}}>
           <h2>Teacher Dashboard</h2>
-          <p>Welcome, {profile.full_name}</p>
+          <p>Welcome back, {profile.full_name}</p>
         </div>
-        <button className="btn btn-outline" style={{width: 'auto'}} onClick={onLogout}>
+        <div className="mascot-container" style={{
+          position: 'absolute',
+          right: '150px',
+          top: '-20px',
+          width: '150px',
+          height: '150px',
+          opacity: 0.6,
+          pointerEvents: 'none'
+        }}>
+          <img 
+            src="/robotic_mascot_hero_1777034901017.png" 
+            alt="Mascot" 
+            style={{width: '100%', height: '100%', objectFit: 'contain'}} 
+          />
+        </div>
+        <button className="btn btn-outline" style={{width: 'auto', position: 'relative', zIndex: 1}} onClick={onLogout}>
           <LogOut size={18} />
           Logout
         </button>
@@ -146,22 +161,27 @@ const TeacherDashboard = ({ profile, onLogout, onHostGame }) => {
         )}
       </div>
 
+      <div className="section-label">Management & Insights</div>
       <div className="action-grid">
         <div 
           className="action-card" 
           onClick={() => setIsManagingStudents(true)}
         >
-          <Users size={32} />
-          <h4>Manage Students</h4>
-          <p>Add students to {selectedClass} and set passwords</p>
+          <div className="icon-badge" style={{background: 'rgba(59, 130, 246, 0.1)', padding: '1.5rem', borderRadius: '20px'}}>
+            <Users size={32} />
+          </div>
+          <h4>Student Roster</h4>
+          <p>Add students and manage credentials</p>
         </div>
         <div 
           className="action-card"
           onClick={() => setIsViewingProgress(true)}
         >
-          <LayoutDashboard size={32} />
+          <div className="icon-badge" style={{background: 'rgba(139, 92, 246, 0.1)', padding: '1.5rem', borderRadius: '20px'}}>
+            <LayoutDashboard size={32} />
+          </div>
           <h4>Class Progress</h4>
-          <p>View achievement reports for {selectedClass}</p>
+          <p>View achievement reports and analytics</p>
         </div>
       </div>
     </div>
