@@ -353,14 +353,26 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
             <Timer />
             <span style={{fontSize: '2rem', fontWeight: 800}}>{timeLeft}</span>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '2rem'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}>
+            <div className="responses-badge" style={{background: 'rgba(255,255,255,0.1)', padding: '0.8rem 1.5rem', borderRadius: '12px', fontWeight: 600}}>
+              {responsesCount} / {participants.length} Responses
+            </div>
+            {isHost && timeLeft > 0 && (
+              <button 
+                className="btn btn-primary btn-sm" 
+                style={{width: 'auto', background: 'var(--success)'}}
+                onClick={() => setTimeLeft(0)}
+              >
+                END QUESTION
+              </button>
+            )}
             <div className="question-count" style={{fontSize: '1.2rem', fontWeight: 600}}>
               Question {currentQuestionIndex + 1} of {questions.length}
             </div>
             {isHost && (
               <button 
                 className="btn btn-outline btn-sm" 
-                style={{borderColor: 'var(--danger)', color: 'var(--danger)'}}
+                style={{borderColor: 'var(--danger)', color: 'var(--danger)', width: 'auto'}}
                 onClick={handleStopSession}
               >
                 STOP GAME
