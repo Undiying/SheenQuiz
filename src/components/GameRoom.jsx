@@ -494,11 +494,20 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
             <p style={{marginTop: '3rem', color: 'rgba(255,255,255,0.7)'}}>Teacher is reviewing results...</p>
             
             <button 
-              className="btn btn-outline" 
-              style={{marginTop: '2rem', borderColor: 'rgba(255,255,255,0.3)', color: 'white', width: 'auto'}}
+              className="btn" 
+              style={{
+                marginTop: '3rem', 
+                backgroundColor: '#ef4444', 
+                color: 'white', 
+                width: 'auto', 
+                padding: '1rem 2rem',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 14px 0 rgba(239, 68, 68, 0.39)'
+              }}
               onClick={onLeave}
             >
-              <XCircle size={18} /> Exit Game
+              EXIT GAME (BACK TO HOME)
             </button>
           </div>
         )}
