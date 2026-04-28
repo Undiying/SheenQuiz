@@ -1,6 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3, Settings, Cpu, Zap, Bot } from 'lucide-react';
+import { Users, XCircle, Rocket, Timer, CheckCircle2, Trophy, BarChart3, Settings, Cpu, Zap, Bot, Volume2, VolumeX } from 'lucide-react';
+
+// AUDIO ASSET LIBRARY
+const AUDIO_ASSETS = {
+  LOBBY: "https://cdn.pixabay.com/audio/2025/11/13/audio_d871a5b378.mp3",
+  GONG: "https://cdn.pixabay.com/audio/2022/03/15/audio_e1fa62c8e5.mp3",
+  BATTLE_TRACKS: [
+    "https://cdn.pixabay.com/audio/2025/08/14/audio_3e8863652b.mp3",
+    "https://cdn.pixabay.com/audio/2023/12/06/audio_a073df0d74.mp3",
+    "https://cdn.pixabay.com/audio/2024/08/22/audio_e96c6b90e3.mp3",
+    "https://cdn.pixabay.com/audio/2026/02/09/audio_b8a82c7b6a.mp3",
+    "https://cdn.pixabay.com/audio/2022/06/09/audio_c02569b50b.mp3",
+    "https://cdn.pixabay.com/audio/2025/07/02/audio_4db6ec44d4.mp3",
+    "https://cdn.pixabay.com/audio/2025/10/26/audio_7c1aed5d12.mp3",
+    "https://cdn.pixabay.com/audio/2025/08/08/audio_9950db6f4f.mp3",
+    "https://cdn.pixabay.com/audio/2024/04/09/audio_8cfb197dd9.mp3",
+    "https://cdn.pixabay.com/audio/2025/10/10/audio_ad83bac674.mp3"
+  ]
+};
 
 export default function GameRoom({ profile, gameSession, onLeave }) {
   const [participants, setParticipants] = useState([]);
@@ -14,9 +32,14 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [responsesCount, setResponsesCount] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
   
   const questionIndexRef = useRef(currentQuestionIndex);
   const questionsRef = useRef(questions);
+  const audioRef = useRef(null);
+  const sfxRef = useRef(null);
+
+  const isHost = profile?.id === gameSession?.host_id;
 
   useEffect(() => {
     questionIndexRef.current = currentQuestionIndex;
@@ -25,6 +48,67 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   useEffect(() => {
     questionsRef.current = questions;
   }, [questions]);
+
+  // AUDIO ENGINE LOGIC (TEACHER ONLY)
+  useEffect(() => {
+    if (!isHost) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.volume = 0.4;
+    }
+    if (!sfxRef.current) {
+      sfxRef.current = new Audio();
+      sfxRef.current.volume = 0.6;
+    }
+
+    const updateAudio = () => {
+      if (isMuted) {
+        audioRef.current.pause();
+        return;
+      }
+
+      if (status === 'lobby') {
+        if (audioRef.current.src !== AUDIO_ASSETS.LOBBY) {
+          audioRef.current.src = AUDIO_ASSETS.LOBBY;
+          audioRef.current.loop = true;
+          audioRef.current.play().catch(e => console.log("Autoplay blocked"));
+        }
+      } else if (status === 'active') {
+        // Pick a track based on question index (cycling)
+        const trackIdx = currentQuestionIndex % AUDIO_ASSETS.BATTLE_TRACKS.length;
+        const nextTrack = AUDIO_ASSETS.BATTLE_TRACKS[trackIdx];
+        
+        if (audioRef.current.src !== nextTrack) {
+          audioRef.current.src = nextTrack;
+          audioRef.current.loop = true;
+          audioRef.current.play().catch(e => console.log("Autoplay blocked"));
+        }
+      } else if (status === 'finished') {
+        audioRef.current.pause();
+      }
+    };
+
+    updateAudio();
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [status, currentQuestionIndex, isHost, isMuted]);
+
+  // SFX LOGIC (GONG AT END OF QUESTION)
+  useEffect(() => {
+    if (!isHost || isMuted) return;
+    
+    // Play gong when time hits zero or results are shown
+    if (timeLeft === 0 && status === 'active' && !showLeaderboard) {
+      sfxRef.current.src = AUDIO_ASSETS.GONG;
+      sfxRef.current.play().catch(e => console.log("SFX blocked"));
+    }
+  }, [timeLeft, status, showLeaderboard, isHost, isMuted]);
 
   const roboticsIcons = [
     { icon: <Settings />, color: '#3b82f6', label: 'Gear' },
@@ -90,8 +174,6 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     }
   }, [timeLeft, status, showLeaderboard, responsesCount, participants.length]);
 
-  const isHost = profile?.id === gameSession?.host_id;
-
   const showQuestionResults = async () => {
     if (!questions[currentQuestionIndex]) return;
     const { data } = await supabase.from('student_responses').select('*').eq('session_id', gameSession.id).eq('question_id', questions[currentQuestionIndex].id);
@@ -113,12 +195,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
 
   const handleLeave = async () => {
     if (!isHost && gameSession?.id) {
-      // Remove student from participants so they don't auto-rejoin
-      await supabase
-        .from('game_participants')
-        .delete()
-        .eq('session_id', gameSession.id)
-        .eq('profile_id', profile.id);
+      await supabase.from('game_participants').delete().eq('session_id', gameSession.id).eq('profile_id', profile.id);
     }
     onLeave();
   };
@@ -155,6 +232,18 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
         <XCircle size={18} style={{marginRight: '8px', verticalAlign: 'middle'}}/> Home
       </button>
 
+      {/* VOLUME TOGGLE (TEACHER ONLY) */}
+      {isHost && (
+        <button 
+          className="btn" 
+          style={{position: 'fixed', top: '1rem', right: '1rem', zIndex: 9999, width: 'auto', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', color: 'white', padding: '0.6rem', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)'}}
+          onClick={() => setIsMuted(!isMuted)}
+          title={isMuted ? "Unmute Music" : "Mute Music"}
+        >
+          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+        </button>
+      )}
+
       {status === 'lobby' && (
         <div className="lobby-container animate-in">
           <div className="lobby-header">
@@ -162,7 +251,21 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
             <div style={{textAlign: 'right'}}><h3>{gameSession?.quizzes?.title}</h3><span>{participants.length} Players joined</span></div>
           </div>
           <div className="players-grid">{participants.map(p => (<div key={p.id} className="player-tag">{p.profiles?.display_name || p.profiles?.full_name}</div>))}</div>
-          <div style={{marginTop: '2rem'}}>{isHost && <button className="btn btn-primary" onClick={handleStartGame} disabled={questions.length === 0} style={{width: 'auto', padding: '0 4rem'}}>START</button>}</div>
+          <div style={{marginTop: '2rem', display: 'flex', gap: '1rem'}}>
+            {isHost && (
+              <>
+                <button className="btn btn-primary" onClick={handleStartGame} disabled={questions.length === 0} style={{width: 'auto', padding: '0 4rem'}}>START</button>
+                {/* Fallback play button for browsers that block initial autoplay */}
+                <button 
+                  className="btn btn-outline" 
+                  style={{width: 'auto', padding: '0 1rem', fontSize: '0.8rem'}}
+                  onClick={() => audioRef.current?.play()}
+                >
+                  <Volume2 size={14} style={{marginRight: '5px'}}/> Enable Audio
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
