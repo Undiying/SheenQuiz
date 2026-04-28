@@ -5,37 +5,59 @@ import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import GameRoom from './components/GameRoom';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
-import { Sparkles } from 'lucide-react';
 
 function App() {
-  const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('auth');
   const [activeSession, setActiveSession] = useState(null);
 
   useEffect(() => {
-    // Check local storage for persistent login
+    // 1. Check local storage for simple logins (students/guests)
     const savedProfile = localStorage.getItem('sheenquiz_profile');
     if (savedProfile) {
       const parsed = JSON.parse(savedProfile);
       handleLoginRoute(parsed);
     }
+
+    // 2. Check Supabase Auth for Teachers/Admins
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*, schools(name)')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) handleLoginRoute(profile);
+      }
+    };
+    checkUser();
   }, []);
 
   const handleLoginRoute = (profileData) => {
     setProfile(profileData);
-    localStorage.setItem('sheenquiz_profile', JSON.stringify(profileData));
+    if (!profileData.is_guest) {
+      localStorage.setItem('sheenquiz_profile', JSON.stringify(profileData));
+    }
     
     if (profileData.role === 'superadmin') {
       setCurrentScreen('superadmin-dashboard');
-    } else if (profileData.role === 'teacher') {
+    } else if (profileData.role === 'admin_teacher' || profileData.role === 'teacher') {
       setCurrentScreen('teacher-dashboard');
     } else {
       setCurrentScreen('student-dashboard');
     }
   };
 
+  const handleGuestLogin = (session, guestProfile) => {
+    setProfile(guestProfile);
+    setActiveSession(session);
+    setCurrentScreen('game-room');
+  };
+
   const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('sheenquiz_profile');
     setProfile(null);
     setCurrentScreen('auth');
@@ -48,20 +70,26 @@ function App() {
 
   const leaveGame = () => {
     setActiveSession(null);
-    setCurrentScreen(profile.role === 'teacher' ? 'teacher-dashboard' : 'student-dashboard');
+    if (profile?.is_guest) {
+      setProfile(null);
+      setCurrentScreen('auth');
+    } else {
+      setCurrentScreen(profile.role.includes('teacher') ? 'teacher-dashboard' : 'student-dashboard');
+    }
   };
 
   return (
     <div className="app">
       {currentScreen === 'auth' && (
-        <Auth onTeacherLogin={handleLoginRoute} onStudentLogin={handleLoginRoute} />
+        <Auth 
+          onTeacherLogin={handleLoginRoute} 
+          onStudentLogin={handleLoginRoute} 
+          onGuestLogin={handleGuestLogin}
+        />
       )}
 
       {currentScreen === 'superadmin-dashboard' && profile && (
-        <SuperAdminDashboard 
-          profile={profile} 
-          onLogout={handleLogout} 
-        />
+        <SuperAdminDashboard profile={profile} onLogout={handleLogout} />
       )}
 
       {currentScreen === 'teacher-dashboard' && profile && (

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Trophy, BarChart3, Timer } from 'lucide-react';
 
-const ClassProgress = ({ selectedClass, onCancel }) => {
+const ClassProgress = ({ profile, selectedClass, onCancel }) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,11 +13,12 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
   const fetchProgress = async () => {
     setLoading(true);
     try {
-      // 1. Get class ID
+      // 1. Get class ID (Scoped to School)
       const { data: classData } = await supabase
         .from('classes')
         .select('id')
         .eq('name', selectedClass)
+        .eq('school_id', profile.school_id)
         .single();
 
       if (!classData) throw new Error('Class not found');
@@ -27,7 +28,8 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
         .from('profiles')
         .select('id, full_name, display_name')
         .eq('role', 'student')
-        .eq('class_id', classData.id);
+        .eq('class_id', classData.id)
+        .eq('school_id', profile.school_id);
 
       if (!studentData || studentData.length === 0) {
         setStudents([]);
@@ -35,9 +37,8 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
         return;
       }
 
-      // 3. For each student, calculate stats
+      // 3. Calculate stats
       const statsPromises = studentData.map(async (student) => {
-        // Fetch game participation
         const { data: participation } = await supabase
           .from('game_participants')
           .select('score')
@@ -46,7 +47,6 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
         const gamesPlayed = participation ? participation.length : 0;
         const totalScore = participation ? participation.reduce((acc, curr) => acc + (curr.score || 0), 0) : 0;
 
-        // Fetch responses
         const { data: responses } = await supabase
           .from('student_responses')
           .select('is_correct, time_taken')
@@ -58,24 +58,15 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
         if (responses && responses.length > 0) {
           const correctCount = responses.filter(r => r.is_correct).length;
           accuracy = Math.round((correctCount / responses.length) * 100);
-          
           const totalTime = responses.reduce((acc, curr) => acc + (curr.time_taken || 0), 0);
           avgSpeed = (totalTime / responses.length).toFixed(1);
         }
 
-        return {
-          ...student,
-          gamesPlayed,
-          totalScore,
-          accuracy,
-          avgSpeed
-        };
+        return { ...student, gamesPlayed, totalScore, accuracy, avgSpeed };
       });
 
       const processedStudents = await Promise.all(statsPromises);
-      // Sort by total score descending
       processedStudents.sort((a, b) => b.totalScore - a.totalScore);
-      
       setStudents(processedStudents);
     } catch (error) {
       console.error('Error fetching progress:', error);
@@ -87,48 +78,43 @@ const ClassProgress = ({ selectedClass, onCancel }) => {
     <div className="screen animate-in" style={{justifyContent: 'flex-start', padding: '2rem'}}>
       <div className="dashboard-header">
         <div className="user-info">
-          <h2>Class Progress</h2>
-          <p>{selectedClass} Rankings & Stats</p>
+          <h2>Academy Analytics</h2>
+          <p>{selectedClass} Performance Leaderboard</p>
         </div>
-        <button className="btn btn-outline" style={{width: 'auto'}} onClick={onCancel}>
-          <X size={18} /> Back
-        </button>
+        <button className="btn btn-outline" style={{width: 'auto'}} onClick={onCancel}><X size={18} /> Back</button>
       </div>
 
-      {loading ? (
-        <p>Loading arcade records...</p>
-      ) : (
+      {loading ? <p>Calculating statistics...</p> : (
         <div style={{width: '100%', maxWidth: '1000px'}}>
           {students.length === 0 ? (
-            <div className="auth-card" style={{textAlign: 'center'}}>
-              <p>No students found in {selectedClass} class.</p>
-            </div>
+            <div className="auth-card" style={{textAlign: 'center'}}><p>No student data found for {selectedClass}.</p></div>
           ) : (
-            <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem'}}>
+            <div style={{display: 'grid', gap: '1.5rem'}}>
               {students.map((s, index) => (
-                <div key={s.id} className="auth-card" style={{display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.5rem'}}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--secondary)', paddingBottom: '1rem'}}>
-                    <h3 style={{color: index === 0 ? 'var(--accent)' : 'white', fontSize: '1.5rem', margin: 0}}>
-                      #{index + 1} {s.full_name} 
-                      {s.display_name && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '1rem'}}>({s.display_name})</span>}
-                    </h3>
-                    <div style={{fontSize: '2rem', color: 'var(--success)'}}>
-                      {s.totalScore} PTS
+                <div key={s.id} className="auth-card" style={{padding: '1.5rem'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                      <span style={{fontSize: '2rem', fontWeight: 900, color: index === 0 ? 'var(--warning)' : 'var(--text-secondary)'}}>#{index + 1}</span>
+                      <div>
+                        <h3 style={{margin: 0}}>{s.full_name}</h3>
+                        {s.display_name && <span style={{fontSize: '0.8rem', opacity: 0.6}}>{s.display_name}</span>}
+                      </div>
                     </div>
+                    <div style={{fontSize: '2rem', fontWeight: 800, color: 'var(--primary)'}}>{s.totalScore} PTS</div>
                   </div>
                   
-                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', textAlign: 'center'}}>
-                    <div style={{background: 'var(--bg-dark)', padding: '1rem', border: '2px solid var(--primary)'}}>
-                      <div style={{color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem', fontFamily: "'Press Start 2P', cursive"}}>GAMES</div>
-                      <div style={{fontSize: '1.5rem', color: 'white'}}>{s.gamesPlayed}</div>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem'}}>
+                    <div className="stat-card" style={{background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center'}}>
+                      <div style={{fontSize: '0.7rem', opacity: 0.6, marginBottom: '0.5rem'}}>GAMES</div>
+                      <div style={{fontSize: '1.2rem', fontWeight: 700}}>{s.gamesPlayed}</div>
                     </div>
-                    <div style={{background: 'var(--bg-dark)', padding: '1rem', border: '2px solid var(--primary)'}}>
-                      <div style={{color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem', fontFamily: "'Press Start 2P', cursive"}}>ACCURACY</div>
-                      <div style={{fontSize: '1.5rem', color: 'var(--accent)'}}>{s.accuracy}%</div>
+                    <div className="stat-card" style={{background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center'}}>
+                      <div style={{fontSize: '0.7rem', opacity: 0.6, marginBottom: '0.5rem'}}>ACCURACY</div>
+                      <div style={{fontSize: '1.2rem', fontWeight: 700, color: 'var(--success)'}}>{s.accuracy}%</div>
                     </div>
-                    <div style={{background: 'var(--bg-dark)', padding: '1rem', border: '2px solid var(--primary)'}}>
-                      <div style={{color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem', fontFamily: "'Press Start 2P', cursive"}}>AVG SPEED</div>
-                      <div style={{fontSize: '1.5rem', color: 'var(--secondary)'}}>{s.avgSpeed}s</div>
+                    <div className="stat-card" style={{background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', textAlign: 'center'}}>
+                      <div style={{fontSize: '0.7rem', opacity: 0.6, marginBottom: '0.5rem'}}>AVG SPEED</div>
+                      <div style={{fontSize: '1.2rem', fontWeight: 700}}>{s.avgSpeed}s</div>
                     </div>
                   </div>
                 </div>
