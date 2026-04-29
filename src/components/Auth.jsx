@@ -110,13 +110,15 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
     e.preventDefault();
     setLoading(true);
     
-    const { data, error } = await supabase
+    const { data: results, error } = await supabase
       .from('profiles')
       .select('*, schools!profiles_school_id_fkey(name)')
       .eq('full_name', formData.name.trim())
       .eq('password', formData.password.trim())
       .eq('role', 'student')
-      .single();
+      .order('created_at', { ascending: false });
+
+    const data = results?.[0];
 
     if (error || !data) {
       console.error("Student login error:", error);

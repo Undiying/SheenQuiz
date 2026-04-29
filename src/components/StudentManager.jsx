@@ -49,6 +49,14 @@ const StudentManager = ({ profile, selectedClass, onCancel }) => {
     if (!newStudent.name || !newStudent.password) return;
     
     setAdding(true);
+
+    // Check for duplicates first
+    const isDuplicate = students.some(s => s.full_name.toLowerCase() === newStudent.name.trim().toLowerCase());
+    if (isDuplicate) {
+      alert('A student with this name already exists in this class roster.');
+      setAdding(false);
+      return;
+    }
     
     const { data, error } = await supabase
       .from('profiles')
