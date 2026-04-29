@@ -23,6 +23,7 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
     setLoading(true);
     
     try {
+      if (authMode === 'signup') {
         // 1. SIGNUP ADMIN TEACHER (Supabase Auth)
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
