@@ -23,8 +23,7 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
     setLoading(true);
     
     try {
-      if (authMode === 'signup') {
-        // 1. SIGNUP ADMIN TEACHER
+        // 1. SIGNUP ADMIN TEACHER (Supabase Auth)
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -35,16 +34,16 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
 
         if (authError) throw authError;
 
-        // 2. CREATE SCHOOL
+        // 2. CREATE SCHOOL (Step 1: Totally independent, no admin_id yet)
         const { data: school, error: schoolError } = await supabase
           .from('schools')
-          .insert({ name: formData.schoolName, admin_id: authData.user.id })
+          .insert({ name: formData.schoolName })
           .select()
           .single();
 
         if (schoolError) throw schoolError;
 
-        // 3. CREATE PROFILE
+        // 3. CREATE PROFILE (Step 2: Link to the school we just made)
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -58,6 +57,12 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
           .single();
 
         if (profileError) throw profileError;
+
+        // 4. UPDATE SCHOOL (Step 3: Now officially set you as the admin)
+        await supabase
+          .from('schools')
+          .update({ admin_id: authData.user.id })
+          .eq('id', school.id);
         
         alert('Academy Created! Please verify your email before logging in.');
         setAuthMode('login');
@@ -72,7 +77,7 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*, schools(name)')
+          .select('*, schools!profiles_school_id_fkey(name)')
           .eq('id', authData.user.id)
           .single();
 
@@ -92,7 +97,7 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
     
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, schools(name)')
+      .select('*, schools!profiles_school_id_fkey(name)')
       .eq('full_name', formData.name)
       .eq('password', formData.password)
       .eq('role', 'student')

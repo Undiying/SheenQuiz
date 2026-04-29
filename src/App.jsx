@@ -25,7 +25,7 @@ function App() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*, schools(name)')
+          .select('*, schools!profiles_school_id_fkey(name)')
           .eq('id', user.id)
           .single();
         

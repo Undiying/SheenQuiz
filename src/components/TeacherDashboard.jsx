@@ -4,6 +4,7 @@ import { Plus, Play, Users, LayoutDashboard, LogOut, Trash2, Rocket, Shield, Glo
 import QuizCreator from './QuizCreator';
 import StudentManager from './StudentManager';
 import ClassProgress from './ClassProgress';
+import AcademyManager from './AcademyManager';
 
 export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
   const [quizzes, setQuizzes] = useState([]);
@@ -13,9 +14,9 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
   const [isCreating, setIsCreating] = useState(false);
   const [isManagingStudents, setIsManagingStudents] = useState(false);
   const [isViewingProgress, setIsViewingProgress] = useState(false);
+  const [isManagingAcademy, setIsManagingAcademy] = useState(false);
   const [showHostModal, setShowHostModal] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
-  const [isManagingSchool, setIsManagingSchool] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -129,6 +130,18 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
     );
   }
 
+  if (isManagingAcademy) {
+    return (
+      <AcademyManager 
+        profile={profile}
+        onCancel={() => {
+          setIsManagingAcademy(false);
+          fetchClasses();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="screen animate-in" style={{justifyContent: 'flex-start', padding: '2rem'}}>
       <div className="dashboard-header">
@@ -138,7 +151,11 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
         </div>
         <div style={{display: 'flex', gap: '1rem'}}>
           {profile.role === 'admin_teacher' && (
-            <button className="btn btn-outline" style={{width: 'auto', background: 'rgba(59, 130, 246, 0.1)'}}>
+            <button 
+              className="btn btn-outline" 
+              style={{width: 'auto', background: 'rgba(59, 130, 246, 0.1)'}}
+              onClick={() => setIsManagingAcademy(true)}
+            >
               <Shield size={18} /> Manage Academy
             </button>
           )}
