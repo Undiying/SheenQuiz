@@ -74,7 +74,21 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
           password: formData.password
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // FALLBACK: If secure Auth fails, check if this is a "Staff" account created by the Admin
+          const { data: staffProfile, error: staffError } = await supabase
+            .from('profiles')
+            .select('*, schools!profiles_school_id_fkey(name)')
+            .eq('email', formData.email)
+            .eq('password', formData.password)
+            .eq('role', 'teacher')
+            .single();
+
+          if (staffError || !staffProfile) throw new Error('Invalid email or password.');
+          
+          onTeacherLogin(staffProfile);
+          return;
+        }
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')

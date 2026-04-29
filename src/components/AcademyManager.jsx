@@ -118,20 +118,23 @@ const AcademyManager = ({ profile, onCancel }) => {
           {activeTab === 'teachers' ? (
             <>
               <h3><UserPlus size={20} /> Add Teacher</h3>
+              <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem'}}>
+                Teachers can log in using the Email and Password you set below.
+              </p>
               <form onSubmit={handleAddTeacher}>
                 <div className="form-group">
                   <label>Full Name</label>
                   <input type="text" value={newTeacher.name} onChange={e => setNewTeacher({...newTeacher, name: e.target.value})} required />
                 </div>
                 <div className="form-group">
-                  <label>Email (Optional)</label>
-                  <input type="email" value={newTeacher.email} onChange={e => setNewTeacher({...newTeacher, email: e.target.value})} />
+                  <label>Email Address</label>
+                  <input type="email" value={newTeacher.email} onChange={e => setNewTeacher({...newTeacher, email: e.target.value})} required />
                 </div>
                 <div className="form-group">
                   <label>Login Password</label>
                   <input type="text" value={newTeacher.password} onChange={e => setNewTeacher({...newTeacher, password: e.target.value})} required />
                 </div>
-                <button type="submit" className="btn btn-primary">Create Account</button>
+                <button type="submit" className="btn btn-primary">Create Staff Account</button>
               </form>
             </>
           ) : (
