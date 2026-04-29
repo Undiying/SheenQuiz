@@ -111,17 +111,18 @@ const StudentManager = ({ profile, selectedClass, onCancel }) => {
   };
 
   const handleDeleteStudent = async (studentId) => {
-    if (!window.confirm('Are you sure you want to remove this student?')) return;
+    if (!window.confirm('Are you sure you want to remove this student? All their game history will be permanently deleted.')) return;
     
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', studentId);
-      
-    if (error) {
-      alert('Error: ' + error.message);
-    } else {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', studentId);
+        
+      if (error) throw error;
       setStudents(students.filter(s => s.id !== studentId));
+    } catch (err) {
+      alert('Error removing student: ' + err.message);
     }
   };
 

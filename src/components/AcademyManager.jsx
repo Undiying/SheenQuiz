@@ -87,9 +87,25 @@ const AcademyManager = ({ profile, onCancel }) => {
   };
 
   const handleDeleteClass = async (id) => {
-    if (!window.confirm('Delete this class? This will also affect quizzes assigned to it.')) return;
-    const { error } = await supabase.from('classes').delete().eq('id', id);
-    if (!error) setClasses(classes.filter(c => c.id !== id));
+    if (!window.confirm('Delete this class? Students will remain in the Academy but will be unassigned.')) return;
+    try {
+      const { error } = await supabase.from('classes').delete().eq('id', id);
+      if (error) throw error;
+      setClasses(classes.filter(c => c.id !== id));
+    } catch (err) {
+      alert('Error deleting class: ' + err.message);
+    }
+  };
+
+  const handleDeleteTeacher = async (id) => {
+    if (!window.confirm('Remove this teacher? Any quizzes they created will be kept but unassigned.')) return;
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) throw error;
+      setTeachers(teachers.filter(t => t.id !== id));
+    } catch (err) {
+      alert('Error removing teacher: ' + err.message);
+    }
   };
 
   return (
@@ -165,7 +181,9 @@ const AcademyManager = ({ profile, onCancel }) => {
                     </div>
                     <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                       <ShieldCheck size={18} color="var(--success)" />
-                      <button className="btn-icon" style={{color: 'var(--danger)'}}><Trash2 size={18} /></button>
+                      <button className="btn-icon" style={{color: 'var(--danger)'}} onClick={() => handleDeleteTeacher(t.id)}>
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
                 ))}

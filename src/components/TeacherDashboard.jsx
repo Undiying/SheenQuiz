@@ -99,7 +99,7 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
 
   const handleDeleteQuiz = async (e, quizId) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this quiz?')) return;
+    if (!window.confirm('Are you sure you want to delete this quiz? All associated game history will be lost.')) return;
     try {
       setLoading(true);
       await supabase.from('questions').delete().eq('quiz_id', quizId);
@@ -107,9 +107,10 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
       if (error) throw error;
       setQuizzes(quizzes.filter(q => q.id !== quizId));
     } catch (err) {
-      alert('Error: ' + err.message);
+      alert('Error deleting quiz: ' + err.message + '\n\nNote: If this quiz has been played, you must run the database cleanup script first to allow cascading deletes.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (isCreating) {
