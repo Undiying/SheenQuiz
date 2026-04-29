@@ -53,8 +53,8 @@ const StudentManager = ({ profile, selectedClass, onCancel }) => {
     const { data, error } = await supabase
       .from('profiles')
       .insert({
-        full_name: newStudent.name,
-        password: newStudent.password,
+        full_name: newStudent.name.trim(),
+        password: newStudent.password.trim(),
         role: 'student',
         class_id: classId,
         school_id: profile.school_id

@@ -113,13 +113,14 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*, schools!profiles_school_id_fkey(name)')
-      .eq('full_name', formData.name)
-      .eq('password', formData.password)
+      .eq('full_name', formData.name.trim())
+      .eq('password', formData.password.trim())
       .eq('role', 'student')
       .single();
 
     if (error || !data) {
-      alert('Invalid student name or password.');
+      console.error("Student login error:", error);
+      alert('Invalid student name or password. Error: ' + (error ? error.message : 'Not found'));
     } else {
       onStudentLogin(data);
     }
