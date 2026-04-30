@@ -117,6 +117,24 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     { icon: <Bot />, color: '#10b981', label: 'Bot' }
   ];
 
+  const fetchQuestions = async () => {
+    const { data } = await supabase.from('questions').select('*').eq('quiz_id', gameSession.quiz_id).order('sort_order', { ascending: true });
+    if (data) setQuestions(data);
+  };
+
+  const startTimer = () => { setTimeLeft(20); setHasAnswered(false); setResults(null); setLocalResult(null); setResponsesCount(0); };
+
+  const fetchResponsesCount = async (index = currentQuestionIndex) => {
+    if (!gameSession?.id || !questionsRef.current[index]) return;
+    const { count } = await supabase.from('student_responses').select('*', { count: 'exact', head: true }).eq('session_id', gameSession.id).eq('question_id', questionsRef.current[index].id);
+    setResponsesCount(count || 0);
+  };
+
+  const fetchParticipants = async () => {
+    const { data } = await supabase.from('game_participants').select('*, profiles(display_name, full_name)').eq('session_id', gameSession.id);
+    if (data) setParticipants(data);
+  };
+
   useEffect(() => {
     if (!gameSession?.id) return;
     fetchParticipants();
@@ -144,23 +162,13 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     };
   }, [gameSession?.id]);
 
-  const fetchResponsesCount = async (index = currentQuestionIndex) => {
-    if (!gameSession?.id || !questionsRef.current[index]) return;
-    const { count } = await supabase.from('student_responses').select('*', { count: 'exact', head: true }).eq('session_id', gameSession.id).eq('question_id', questionsRef.current[index].id);
-    setResponsesCount(count || 0);
-  };
-
-  const fetchParticipants = async () => {
-    const { data } = await supabase.from('game_participants').select('*, profiles(display_name, full_name)').eq('session_id', gameSession.id);
-    if (data) setParticipants(data);
-  };
-
-  const fetchQuestions = async () => {
-    const { data } = await supabase.from('questions').select('*').eq('quiz_id', gameSession.quiz_id).order('sort_order', { ascending: true });
-    if (data) setQuestions(data);
-  };
-
-  const startTimer = () => { setTimeLeft(20); setHasAnswered(false); setResults(null); setLocalResult(null); setResponsesCount(0); };
+  // Fix for students joining mid-question
+  useEffect(() => {
+    if (status === 'active' && timeLeft === 0 && !hasAnswered && !showLeaderboard) {
+      startTimer();
+      fetchResponsesCount();
+    }
+  }, [status]);
 
   useEffect(() => {
     if (status === 'active' && !showLeaderboard && participants.length > 0 && responsesCount >= participants.length) {
@@ -290,7 +298,29 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
           </div>
           <div className="question-area" style={{textAlign: 'center', maxWidth: '900px', margin: '2rem auto', width: '100%'}}>
             {(isHost || results) && <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>}
-            {isHost || results ? (<div className="options-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>{currentQuestion.options?.map((opt, idx) => (<div key={idx} style={{background: 'var(--bg-card)', padding: '2rem', borderRadius: '24px', border: results && idx === currentQuestion.correct_answer ? '4px solid var(--success)' : '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '1.5rem', opacity: results && idx !== currentQuestion.correct_answer ? 0.4 : 1}}><div style={{background: roboticsIcons[idx]?.color, padding: '1rem', borderRadius: '12px', color: 'white'}}>{roboticsIcons[idx] && React.cloneElement(roboticsIcons[idx].icon, { size: 32 })}</div><span style={{fontSize: '1.5rem', fontWeight: 600}}>{opt}</span></div>))}</div>) : (<div className="response-grid">{roboticsIcons.map((item, idx) => (<button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: item.color, color: 'white'}}>{React.cloneElement(item.icon, { size: 100 })}</button>))}</div>)}
+            {isHost || results ? (
+              <div className="options-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%'}}>
+                {currentQuestion.options?.map((opt, idx) => (
+                  <div key={idx} style={{background: 'var(--bg-card)', padding: '2rem', borderRadius: '24px', border: results && idx === currentQuestion.correct_answer ? '4px solid var(--success)' : '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '1.5rem', opacity: results && idx !== currentQuestion.correct_answer ? 0.4 : 1}}>
+                    <div style={{background: roboticsIcons[idx]?.color || 'var(--primary)', padding: '1rem', borderRadius: '12px', color: 'white'}}>
+                      {roboticsIcons[idx] ? React.cloneElement(roboticsIcons[idx].icon, { size: 32 }) : <Settings size={32} />}
+                    </div>
+                    <span style={{fontSize: '1.5rem', fontWeight: 600}}>{opt}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="response-grid">
+                {currentQuestion.options?.map((opt, idx) => {
+                  const iconData = roboticsIcons[idx] || { color: 'var(--primary)', icon: <Settings /> };
+                  return (
+                    <button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: iconData.color, color: 'white'}}>
+                      {React.cloneElement(iconData.icon, { size: 100 })}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           {timeLeft === 0 && !isHost && !showLeaderboard && (
             <div className="feedback-screen animate-in" style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: localResult?.isCorrect ? 'var(--success)' : (localResult ? 'var(--danger)' : 'var(--bg-dark)'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100}}>

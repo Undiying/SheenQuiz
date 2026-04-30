@@ -170,7 +170,7 @@ const Auth = ({ onTeacherLogin, onStudentLogin, onGuestLogin }) => {
       <div className="auth-container">
         <div className="brand">
           <div className="logo-icon"><Sparkles /></div>
-          <h1>SheenQuiz Academy</h1>
+          <h1>Quizkie Academy</h1>
         </div>
 
         <div className="auth-card">

@@ -404,6 +404,29 @@ h1, h2, h3, .brand h1 {
     margin: 0;
 }
 
+.response-btn {
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    width: 100%;
+    height: 100%;
+}
+
+.response-btn:active {
+    transform: scale(0.95);
+}
+
+.response-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .action-card {
     background: linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7));
     backdrop-filter: blur(15px);
