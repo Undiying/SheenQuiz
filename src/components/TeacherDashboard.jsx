@@ -102,7 +102,7 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
     if (!window.confirm('Are you sure you want to delete this quiz? All associated game history will be lost.')) return;
     try {
       setLoading(true);
-      await supabase.from('questions').delete().eq('quiz_id', quizId);
+      // Let the database ON DELETE CASCADE handle questions and sessions
       const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
       if (error) throw error;
       setQuizzes(quizzes.filter(q => q.id !== quizId));

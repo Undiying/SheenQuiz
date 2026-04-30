@@ -50,7 +50,7 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
 
   const handleSave = async () => {
     if (!title) return alert('Please enter a quiz title.');
-    if (questions.some(q => !q.question_text || q.options.some(o => !o))) {
+    if (questions.some(q => !q.question_text || (q.type === 'true_false' ? q.options.slice(0, 2) : q.options).some(o => !o))) {
       return alert('Please fill in all questions and options.');
     }
 
