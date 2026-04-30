@@ -16,6 +16,7 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
   const [isViewingProgress, setIsViewingProgress] = useState(false);
   const [isManagingAcademy, setIsManagingAcademy] = useState(false);
   const [showHostModal, setShowHostModal] = useState(false);
+  const [editQuizData, setEditQuizData] = useState(null);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
   useEffect(() => {
@@ -114,7 +115,7 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
   };
 
   if (isCreating) {
-    return <QuizCreator profile={profile} selectedClass={selectedClass} onSave={() => { setIsCreating(false); fetchQuizzes(); }} onCancel={() => setIsCreating(false)} />;
+    return <QuizCreator profile={profile} selectedClass={selectedClass} editQuizData={editQuizData} onSave={() => { setIsCreating(false); setEditQuizData(null); fetchQuizzes(); }} onCancel={() => { setIsCreating(false); setEditQuizData(null); }} />;
   }
 
   if (isManagingStudents) {
@@ -199,6 +200,15 @@ export default function TeacherDashboard({ profile, onLogout, onHostGame }) {
                 <div className="card-actions" style={{display: 'flex', gap: '0.8rem', marginTop: '1.5rem'}}>
                   <button className="btn btn-primary" style={{flex: 1}} onClick={() => { setSelectedQuiz(q); setShowHostModal(true); }}>
                     <Rocket size={18} /> Host Live
+                  </button>
+                  <button className="btn btn-outline" style={{width: 'auto'}} onClick={async () => {
+                    setLoading(true);
+                    const { data: questions } = await supabase.from('questions').select('*').eq('quiz_id', q.id).order('sort_order', { ascending: true });
+                    setLoading(false);
+                    setEditQuizData({ ...q, questions: questions || [] });
+                    setIsCreating(true);
+                  }}>
+                    Edit
                   </button>
                   <button className="btn btn-outline" style={{width: 'auto', color: 'var(--danger)'}} onClick={(e) => handleDeleteQuiz(e, q.id)}>
                     <Trash2 size={18} />

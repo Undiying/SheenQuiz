@@ -2,16 +2,33 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, Trash2, Save, X, CheckCircle2 } from 'lucide-react';
 
-const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
+const QuizCreator = ({ profile, selectedClass, editQuizData, onSave, onCancel }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState([
-    { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice' }
+    { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice', time_limit: 20 }
   ]);
   const [saving, setSaving] = useState(false);
 
+  React.useEffect(() => {
+    if (editQuizData) {
+      setTitle(editQuizData.title);
+      setDescription(editQuizData.description || '');
+      if (editQuizData.questions && editQuizData.questions.length > 0) {
+        setQuestions(editQuizData.questions.map(q => ({
+          ...q,
+          options: q.type === 'true_false' 
+            ? [q.options[0] || 'True', q.options[1] || 'False', '', ''] 
+            : [...q.options, '', '', '', ''].slice(0, 4),
+          time_limit: q.time_limit || 20
+        })));
+      }
+    }
+  }, [editQuizData]);
+  const [saving, setSaving] = useState(false);
+
   const addQuestion = () => {
-    setQuestions([...questions, { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice' }]);
+    setQuestions([...questions, { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice', time_limit: 20 }]);
   };
 
   const removeQuestion = (index) => {
@@ -42,6 +59,12 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
     setQuestions(newQuestions);
   };
 
+  const updateTimeLimit = (index, time) => {
+    const newQuestions = [...questions];
+    newQuestions[index].time_limit = parseInt(time) || 20;
+    setQuestions(newQuestions);
+  };
+
   const setCorrectAnswer = (qIndex, oIndex) => {
     const newQuestions = [...questions];
     newQuestions[qIndex].correct_answer = oIndex;
@@ -56,37 +79,54 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
 
     setSaving(true);
     try {
-      // 1. Get class ID (Scoped to School)
-      const { data: classData, error: classError } = await supabase
-        .from('classes')
-        .select('id')
-        .eq('name', selectedClass)
-        .eq('school_id', profile.school_id)
-        .single();
+      let quizId = editQuizData?.id;
 
-      if (classError) throw new Error("Class not found in your school.");
+      if (!quizId) {
+        // 1. Get class ID (Scoped to School)
+        const { data: classData, error: classError } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('name', selectedClass)
+          .eq('school_id', profile.school_id)
+          .single();
 
-      // 2. Insert Quiz
-      const { data: quiz, error: qError } = await supabase
-        .from('quizzes')
-        .insert({
-          title,
-          description,
-          teacher_id: profile.id,
-          class_id: classData.id
-        })
-        .select()
-        .single();
+        if (classError) throw new Error("Class not found in your school.");
 
-      if (qError) throw qError;
+        // 2. Insert Quiz
+        const { data: quiz, error: qError } = await supabase
+          .from('quizzes')
+          .insert({
+            title,
+            description,
+            teacher_id: profile.id,
+            class_id: classData.id
+          })
+          .select()
+          .single();
+
+        if (qError) throw qError;
+        quizId = quiz.id;
+      } else {
+        // Update existing Quiz
+        const { error: updateError } = await supabase
+          .from('quizzes')
+          .update({ title, description })
+          .eq('id', quizId);
+        
+        if (updateError) throw updateError;
+
+        // Delete old questions to replace them (much easier than upsert/syncing IDs)
+        await supabase.from('questions').delete().eq('quiz_id', quizId);
+      }
 
       // 3. Insert Questions
       const questionsToInsert = questions.map((q, idx) => ({
-        quiz_id: quiz.id,
+        quiz_id: quizId,
         question_text: q.question_text,
         options: q.type === 'true_false' ? ['True', 'False'] : q.options,
         correct_answer: q.correct_answer,
         type: q.type,
+        time_limit: q.time_limit || 20,
         sort_order: idx
       }));
 
@@ -107,7 +147,7 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
     <div className="screen animate-in" style={{justifyContent: 'flex-start', padding: '2rem'}}>
       <div className="dashboard-header">
         <div className="user-info">
-          <h2>Create New Quiz</h2>
+          <h2>{editQuizData ? 'Edit Quiz' : 'Create New Quiz'}</h2>
           <p>Class: {selectedClass}</p>
         </div>
         <button className="btn btn-outline" style={{width: 'auto'}} onClick={onCancel}>
@@ -128,11 +168,10 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
         <div className="questions-list" style={{marginTop: '2rem'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
             <h3>Questions</h3>
-            <button className="btn btn-outline btn-sm" style={{width: 'auto'}} onClick={addQuestion}><Plus size={18} /> Add Question</button>
           </div>
 
           {questions.map((q, qIndex) => (
-            <div key={qIndex} className="question-item" style={{background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)'}}>
+            <div key={qIndex} className="question-item animate-in" style={{background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid var(--glass-border)'}}>
               <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
                 <span style={{fontWeight: 700, color: 'var(--primary)'}}># {qIndex + 1}</span>
                 {questions.length > 1 && (
@@ -147,7 +186,17 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
                     <option value="true_false">True / False</option>
                   </select>
                 </div>
-                <div className="form-group" style={{flex: 2, marginBottom: 0}}>
+                <div className="form-group" style={{flex: 1, marginBottom: 0}}>
+                  <label>Time Limit</label>
+                  <select style={{width: '100%', background: 'var(--bg-dark)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '0.8rem', color: 'white'}} value={q.time_limit} onChange={(e) => updateTimeLimit(qIndex, e.target.value)}>
+                    <option value="10">10 Seconds</option>
+                    <option value="20">20 Seconds</option>
+                    <option value="30">30 Seconds</option>
+                    <option value="45">45 Seconds</option>
+                    <option value="60">1 Minute</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{flex: 3, marginBottom: 0}}>
                   <label>Question Text</label>
                   <input type="text" placeholder="Enter question" value={q.question_text} onChange={(e) => updateQuestionText(qIndex, e.target.value)} />
                 </div>
@@ -162,8 +211,9 @@ const QuizCreator = ({ profile, selectedClass, onSave, onCancel }) => {
               </div>
             </div>
           ))}
+          <button className="btn btn-outline" style={{width: '100%', padding: '1rem', borderStyle: 'dashed', marginTop: '1rem'}} onClick={addQuestion}><Plus size={18} /> Add New Question</button>
         </div>
-        <button className="btn btn-primary" style={{marginTop: '1rem'}} onClick={handleSave} disabled={saving}><Save size={18} /> {saving ? 'Saving...' : 'Save Quiz'}</button>
+        <button className="btn btn-primary" style={{marginTop: '2rem', width: '100%', padding: '1.2rem', fontSize: '1.2rem'}} onClick={handleSave} disabled={saving}><Save size={20} /> {saving ? 'Saving...' : (editQuizData ? 'Update Quiz' : 'Save Quiz')}</button>
       </div>
     </div>
   );

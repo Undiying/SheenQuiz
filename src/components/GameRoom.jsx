@@ -33,11 +33,17 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [responsesCount, setResponsesCount] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [shuffledTracks, setShuffledTracks] = useState([]);
   
   const questionIndexRef = useRef(currentQuestionIndex);
   const questionsRef = useRef(questions);
   const audioRef = useRef(null);
   const sfxRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  useEffect(() => {
+    setShuffledTracks([...AUDIO_ASSETS.BATTLE_TRACKS].sort(() => Math.random() - 0.5));
+  }, []);
 
   const isHost = profile?.id === gameSession?.host_id;
 
@@ -53,6 +59,33 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   }, [questions]);
 
   // AUDIO ENGINE LOGIC (TEACHER ONLY)
+  const fadeOutAudio = () => {
+    if (!audioRef.current || audioRef.current.paused) return;
+    if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+    fadeIntervalRef.current = setInterval(() => {
+      if (audioRef.current && audioRef.current.volume > 0.05) {
+        audioRef.current.volume -= 0.05;
+      } else {
+        clearInterval(fadeIntervalRef.current);
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.volume = 0.4;
+        }
+      }
+    }, 100);
+  };
+
+  const playAudio = (src) => {
+    if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+    if (!audioRef.current) return;
+    audioRef.current.volume = 0.4;
+    if (audioRef.current.src !== src) {
+      audioRef.current.src = src;
+      audioRef.current.loop = true;
+    }
+    audioRef.current.play().catch(e => console.log("Autoplay blocked"));
+  };
+
   useEffect(() => {
     if (!isHost) return;
 
@@ -67,40 +100,35 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
 
     const updateAudio = () => {
       if (isMuted) {
-        audioRef.current.pause();
+        fadeOutAudio();
         return;
       }
 
       if (status === 'lobby') {
-        if (audioRef.current.src !== AUDIO_ASSETS.LOBBY) {
-          audioRef.current.src = AUDIO_ASSETS.LOBBY;
-          audioRef.current.loop = true;
-          audioRef.current.play().catch(e => console.log("Autoplay blocked"));
-        }
-      } else if (status === 'active') {
-        // Pick a track based on question index (cycling)
-        const trackIdx = currentQuestionIndex % AUDIO_ASSETS.BATTLE_TRACKS.length;
-        const nextTrack = AUDIO_ASSETS.BATTLE_TRACKS[trackIdx];
+        playAudio(AUDIO_ASSETS.LOBBY);
+      } else if (status === 'active' && !showLeaderboard) {
+        // Track persistence: 1 track every 3 questions
+        const chunkIndex = Math.floor(currentQuestionIndex / 3);
+        const trackIdx = chunkIndex % (shuffledTracks.length || 1);
+        const nextTrack = shuffledTracks[trackIdx] || AUDIO_ASSETS.BATTLE_TRACKS[0];
         
-        if (audioRef.current.src !== nextTrack) {
-          audioRef.current.src = nextTrack;
-          audioRef.current.loop = true;
-          audioRef.current.play().catch(e => console.log("Autoplay blocked"));
-        }
+        playAudio(nextTrack);
+      } else if (showLeaderboard) {
+        fadeOutAudio();
       } else if (status === 'finished') {
-        audioRef.current.pause();
+        fadeOutAudio();
       }
     };
 
     updateAudio();
 
     return () => {
-      if (audioRef.current) {
+      if (audioRef.current && status === 'finished') {
         audioRef.current.pause();
         audioRef.current = null;
       }
     };
-  }, [status, currentQuestionIndex, isHost, isMuted]);
+  }, [status, currentQuestionIndex, showLeaderboard, isHost, isMuted, shuffledTracks]);
 
   // SFX LOGIC (GONG AT END OF QUESTION)
   useEffect(() => {
@@ -125,7 +153,14 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     if (data) setQuestions(data);
   };
 
-  const startTimer = () => { setTimeLeft(20); setHasAnswered(false); setResults(null); setLocalResult(null); setResponsesCount(0); };
+  const startTimer = (index = currentQuestionIndex) => { 
+    const timeLimit = questionsRef.current[index]?.time_limit || 20;
+    setTimeLeft(timeLimit); 
+    setHasAnswered(false); 
+    setResults(null); 
+    setLocalResult(null); 
+    setResponsesCount(0); 
+  };
 
   const fetchResponsesCount = async (index = currentQuestionIndex) => {
     if (!gameSession?.id || !questionsRef.current[index]) return;
@@ -148,7 +183,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
       if (payload?.new) {
         setStatus(payload.new.status);
         setCurrentQuestionIndex(payload.new.current_question_index);
-        if (payload.new.status === 'active') { startTimer(); fetchResponsesCount(payload.new.current_question_index); }
+        if (payload.new.status === 'active') { startTimer(payload.new.current_question_index); fetchResponsesCount(payload.new.current_question_index); }
         else if (payload.new.status === 'finished') setStatus('finished');
       }
     }).subscribe();
@@ -162,6 +197,9 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
       if (payload.payload.questionIndex === questionIndexRef.current) {
         setTimeLeft(0);
       }
+    }).on('broadcast', { event: 'show_leaderboard' }, (payload) => {
+      setLeaderboard(payload.payload.leaderboard);
+      setShowLeaderboard(true);
     }).subscribe();
 
     return () => {
@@ -175,7 +213,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   // Fix for students joining mid-question
   useEffect(() => {
     if (status === 'active' && timeLeft === 0 && !hasAnswered && !showLeaderboard) {
-      startTimer();
+      startTimer(currentQuestionIndex);
       fetchResponsesCount();
     }
   }, [status]);
@@ -202,16 +240,30 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
   };
 
   const calculateLeaderboard = async () => {
-    const { data } = await supabase.from('student_responses').select('profile_id, is_correct, time_taken, profiles(display_name, full_name)').eq('session_id', gameSession.id);
     const scores = {};
+    // Ensure all participants start with 0 points
+    participants.forEach(p => {
+      scores[p.profile_id] = { 
+        name: p.profiles?.display_name || p.profiles?.full_name || 'Student', 
+        score: 0,
+        profile_id: p.profile_id 
+      };
+    });
+
+    const { data } = await supabase.from('student_responses').select('profile_id, is_correct, time_taken, profiles(display_name, full_name)').eq('session_id', gameSession.id);
     if (data) {
       data.forEach(resp => {
-        if (!scores[resp.profile_id]) scores[resp.profile_id] = { name: resp.profiles?.display_name || resp.profiles?.full_name || 'Student', score: 0 };
+        if (!scores[resp.profile_id]) scores[resp.profile_id] = { name: resp.profiles?.display_name || resp.profiles?.full_name || 'Student', score: 0, profile_id: resp.profile_id };
         if (resp.is_correct) scores[resp.profile_id].score += Math.max(500, 1000 - Math.floor(resp.time_taken * 25));
       });
     }
-    setLeaderboard(Object.values(scores).sort((a, b) => b.score - a.score));
+    const finalLeaderboard = Object.values(scores).sort((a, b) => b.score - a.score);
+    setLeaderboard(finalLeaderboard);
     setShowLeaderboard(true);
+
+    if (isHost) {
+      supabase.channel(`broadcast:${gameSession.id}`).send({ type: 'broadcast', event: 'show_leaderboard', payload: { leaderboard: finalLeaderboard } });
+    }
   };
 
   const handleLeave = async () => {
@@ -234,7 +286,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
     setHasAnswered(true);
     const question = questions[currentQuestionIndex];
     const isCorrect = idx === question.correct_answer;
-    const timeTaken = 20 - timeLeft;
+    const timeTaken = (questions[currentQuestionIndex].time_limit || 20) - timeLeft;
     const points = isCorrect ? Math.max(500, 1000 - Math.floor(timeTaken * 25)) : 0;
     setLocalResult({ isCorrect, points });
     await supabase.from('student_responses').insert({ session_id: gameSession.id, profile_id: profile.id, question_id: question.id, chosen_option: idx, is_correct: isCorrect, time_taken: timeTaken });
@@ -295,9 +347,15 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
           <Trophy size={64} color="var(--warning)" style={{marginBottom: '1rem'}}/>
           <h1 style={{fontSize: '3rem', marginBottom: '2rem'}}>{status === 'finished' ? 'Final Leaderboard' : 'Standings'}</h1>
           <div className="leaderboard-card auth-card" style={{width: '100%', maxWidth: '600px'}}>
-            {leaderboard.map((entry, idx) => (<div key={idx} style={{display: 'flex', justifyContent: 'space-between', padding: '1rem', background: idx === 0 ? 'rgba(255,215,0,0.1)' : 'transparent', borderRadius: '12px', borderBottom: '1px solid var(--glass-border)'}}>
-              <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}><span style={{fontWeight: 800, color: idx === 0 ? 'var(--warning)' : 'var(--text-secondary)'}}>#{idx + 1}</span><span style={{fontWeight: 600}}>{entry.name}</span></div><span style={{fontWeight: 800, color: 'var(--primary)'}}>{entry.score} pts</span>
-            </div>))}
+            {leaderboard.map((entry, idx) => (
+              <div key={idx} style={{display: 'flex', justifyContent: 'space-between', padding: '1rem', background: entry.profile_id === profile.id ? 'rgba(59, 130, 246, 0.2)' : (idx === 0 ? 'rgba(255,215,0,0.1)' : 'transparent'), borderRadius: '12px', borderBottom: '1px solid var(--glass-border)', border: entry.profile_id === profile.id ? '1px solid var(--primary)' : 'none'}}>
+                <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                  <span style={{fontWeight: 800, color: idx === 0 ? 'var(--warning)' : 'var(--text-secondary)'}}>#{idx + 1}</span>
+                  <span style={{fontWeight: 600}}>{entry.name} {entry.profile_id === profile.id && '(You)'}</span>
+                </div>
+                <span style={{fontWeight: 800, color: 'var(--primary)'}}>{entry.score} pts</span>
+              </div>
+            ))}
           </div>
           <div style={{marginTop: '2rem'}}>{isHost && status !== 'finished' && <button className="btn btn-primary" onClick={handleNextQuestion} style={{width: 'auto', padding: '1rem 3rem'}}>{currentQuestionIndex + 1 === questions.length ? 'FINISH' : 'NEXT'}</button>}</div>
         </div>
