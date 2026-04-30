@@ -323,24 +323,25 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
                 ))}
               </div>
             ) : (
-              <div style={{position: 'relative', width: '100%', height: '100%'}}>
-                <div className="response-grid" style={{opacity: hasAnswered ? 0.3 : 1, transition: 'opacity 0.3s', pointerEvents: hasAnswered ? 'none' : 'auto'}}>
-                  {currentQuestion.options?.map((opt, idx) => {
-                    const iconData = roboticsIcons[idx] || { color: 'var(--primary)', icon: <Settings /> };
-                    return (
-                      <button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: iconData.color, color: 'white'}}>
-                        {React.cloneElement(iconData.icon, { size: 100 })}
-                      </button>
-                    );
-                  })}
-                </div>
-                {hasAnswered && timeLeft > 0 && (
-                  <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10}}>
-                    <div style={{background: 'var(--success)', padding: '2rem', borderRadius: '50%', marginBottom: '1rem', boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)'}}>
-                      <CheckCircle2 size={64} color="white" />
+              <div style={{width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh'}}>
+                {!hasAnswered ? (
+                  <div className="response-grid">
+                    {currentQuestion.options?.map((opt, idx) => {
+                      const iconData = roboticsIcons[idx] || { color: 'var(--primary)', icon: <Settings /> };
+                      return (
+                        <button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: iconData.color, color: 'white'}}>
+                          {React.cloneElement(iconData.icon, { size: 100 })}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="animate-in" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem', background: 'var(--bg-card)', borderRadius: '32px', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)'}}>
+                    <div style={{background: 'var(--success)', padding: '2rem', borderRadius: '50%', marginBottom: '2rem', boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)'}}>
+                      <CheckCircle2 size={80} color="white" />
                     </div>
-                    <h2 style={{fontSize: '2rem'}}>Answer Logged!</h2>
-                    <p style={{color: 'var(--text-secondary)', fontSize: '1.2rem', marginTop: '1rem'}}>Waiting for others...</p>
+                    <h2 style={{fontSize: '3rem', marginBottom: '1rem'}}>Answer Logged!</h2>
+                    <p style={{color: 'var(--text-secondary)', fontSize: '1.5rem'}}>Waiting for the timer to end...</p>
                   </div>
                 )}
               </div>
