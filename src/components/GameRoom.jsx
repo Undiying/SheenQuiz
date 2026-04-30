@@ -43,6 +43,9 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
 
   useEffect(() => {
     questionIndexRef.current = currentQuestionIndex;
+    setShowLeaderboard(false);
+    setResults(null);
+    setHasAnswered(false);
   }, [currentQuestionIndex]);
 
   useEffect(() => {
@@ -155,10 +158,17 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
       if (currentQ && payload?.new?.question_id === currentQ.id) fetchResponsesCount(questionIndexRef.current);
     }).subscribe();
 
+    const broadcastChannel = supabase.channel(`broadcast:${gameSession.id}`).on('broadcast', { event: 'end_timer' }, (payload) => {
+      if (payload.payload.questionIndex === questionIndexRef.current) {
+        setTimeLeft(0);
+      }
+    }).subscribe();
+
     return () => {
       supabase.removeChannel(participantsChannel);
       supabase.removeChannel(sessionChannel);
       supabase.removeChannel(responsesChannel);
+      supabase.removeChannel(broadcastChannel);
     };
   }, [gameSession?.id]);
 
@@ -172,6 +182,9 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
 
   useEffect(() => {
     if (status === 'active' && !showLeaderboard && participants.length > 0 && responsesCount >= participants.length) {
+      if (isHost && timeLeft > 0) {
+        supabase.channel(`broadcast:${gameSession.id}`).send({ type: 'broadcast', event: 'end_timer', payload: { questionIndex: currentQuestionIndex } });
+      }
       setTimeLeft(0); showQuestionResults(); return;
     }
     if (status === 'active' && !showLeaderboard && timeLeft > 0) {
@@ -294,7 +307,7 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
         <div className="screen animate-in" style={{background: 'var(--bg-dark)', width: '100%'}}>
           <div className="quiz-header" style={{width: '100%', display: 'flex', justifyContent: 'space-between', padding: '2rem'}}>
             <div className="timer-badge" style={{background: 'var(--primary)', padding: '1rem 2rem', borderRadius: '50px', display: 'flex', alignItems: 'center', gap: '1rem'}}><Timer /><span style={{fontSize: '2rem', fontWeight: 800}}>{timeLeft}</span></div>
-            <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}><div style={{fontWeight: 600}}>{responsesCount} / {participants.length} Responses</div>{isHost && timeLeft > 0 && <button className="btn btn-primary btn-sm" style={{width: 'auto', background: 'var(--success)'}} onClick={() => setTimeLeft(0)}>END</button>}<div style={{fontSize: '1.2rem', fontWeight: 600}}>Q{currentQuestionIndex + 1} of {questions.length}</div>{isHost && <button className="btn btn-outline btn-sm" style={{borderColor: 'var(--danger)', color: 'var(--danger)', width: 'auto'}} onClick={handleStopSession}>STOP</button>}</div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}><div style={{fontWeight: 600}}>{responsesCount} / {participants.length} Responses</div>{isHost && timeLeft > 0 && <button className="btn btn-primary btn-sm" style={{width: 'auto', background: 'var(--success)'}} onClick={() => { setTimeLeft(0); supabase.channel(`broadcast:${gameSession.id}`).send({ type: 'broadcast', event: 'end_timer', payload: { questionIndex: currentQuestionIndex } }); }}>END</button>}<div style={{fontSize: '1.2rem', fontWeight: 600}}>Q{currentQuestionIndex + 1} of {questions.length}</div>{isHost && <button className="btn btn-outline btn-sm" style={{borderColor: 'var(--danger)', color: 'var(--danger)', width: 'auto'}} onClick={handleStopSession}>STOP</button>}</div>
           </div>
           <div className="question-area" style={{textAlign: 'center', maxWidth: '900px', margin: '2rem auto', width: '100%'}}>
             {(isHost || results) && <h1 style={{fontSize: '3rem', marginBottom: '3rem'}}>{currentQuestion.question_text}</h1>}
@@ -310,18 +323,36 @@ export default function GameRoom({ profile, gameSession, onLeave }) {
                 ))}
               </div>
             ) : (
-              <div className="response-grid">
-                {currentQuestion.options?.map((opt, idx) => {
-                  const iconData = roboticsIcons[idx] || { color: 'var(--primary)', icon: <Settings /> };
-                  return (
-                    <button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: iconData.color, color: 'white'}}>
-                      {React.cloneElement(iconData.icon, { size: 100 })}
-                    </button>
-                  );
-                })}
+              <div style={{position: 'relative', width: '100%', height: '100%'}}>
+                <div className="response-grid" style={{opacity: hasAnswered ? 0.3 : 1, transition: 'opacity 0.3s', pointerEvents: hasAnswered ? 'none' : 'auto'}}>
+                  {currentQuestion.options?.map((opt, idx) => {
+                    const iconData = roboticsIcons[idx] || { color: 'var(--primary)', icon: <Settings /> };
+                    return (
+                      <button key={idx} className="response-btn" disabled={hasAnswered} onClick={() => submitAnswer(idx)} style={{background: iconData.color, color: 'white'}}>
+                        {React.cloneElement(iconData.icon, { size: 100 })}
+                      </button>
+                    );
+                  })}
+                </div>
+                {hasAnswered && timeLeft > 0 && (
+                  <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10}}>
+                    <div style={{background: 'var(--success)', padding: '2rem', borderRadius: '50%', marginBottom: '1rem', boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)'}}>
+                      <CheckCircle2 size={64} color="white" />
+                    </div>
+                    <h2 style={{fontSize: '2rem'}}>Answer Logged!</h2>
+                    <p style={{color: 'var(--text-secondary)', fontSize: '1.2rem', marginTop: '1rem'}}>Waiting for others...</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
+          {isHost && results && timeLeft === 0 && !showLeaderboard && (
+            <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'center'}}>
+              <button className="btn btn-primary" onClick={calculateLeaderboard} style={{width: 'auto', padding: '1rem 4rem', fontSize: '1.2rem'}}>
+                SHOW LEADERBOARD
+              </button>
+            </div>
+          )}
           {timeLeft === 0 && !isHost && !showLeaderboard && (
             <div className="feedback-screen animate-in" style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: localResult?.isCorrect ? 'var(--success)' : (localResult ? 'var(--danger)' : 'var(--bg-dark)'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100}}>
               <h1 style={{fontSize: '4rem', color: 'white', marginBottom: '1rem'}}>{localResult?.isCorrect ? 'Correct!' : (localResult ? 'Incorrect' : "Time's Up!")}</h1>
