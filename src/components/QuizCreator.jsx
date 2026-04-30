@@ -25,7 +25,6 @@ const QuizCreator = ({ profile, selectedClass, editQuizData, onSave, onCancel })
       }
     }
   }, [editQuizData]);
-  const [saving, setSaving] = useState(false);
 
   const addQuestion = () => {
     setQuestions([...questions, { question_text: '', options: ['', '', '', ''], correct_answer: 0, type: 'multiple_choice', time_limit: 20 }]);
